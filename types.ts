@@ -72,12 +72,24 @@ export enum PlanType {
 
 export interface Plan {
   id: string;
-  type: PlanType;
+  type: string; // Changed from PlanType enum to string to allow dynamic plans
   price: number;
   features: string[];
   color: string;
   maxProducts: number; // -1 for unlimited
   maxHighlights: number; // -1 for unlimited
+}
+
+export interface UserSettings {
+  notifications: boolean;
+  allowMessages: boolean;
+}
+
+export interface UserBankDetails {
+  bankName: string;
+  iban: string;
+  accountNumber: string;
+  beneficiaryName: string;
 }
 
 export interface User {
@@ -89,7 +101,7 @@ export interface User {
   isAdmin?: boolean; // Added Admin Flag
   isBank?: boolean;
   nif?: string; // Added NIF property
-  plan?: PlanType;
+  plan?: string; // Changed to string to match dynamic Plan interface
   // Dynamic limits calculated based on upgrades/rollovers
   customLimits?: {
     maxProducts: number;
@@ -102,16 +114,33 @@ export interface User {
   address?: string; // Added address/location
   province?: string; // Added province
   municipality?: string; // Added municipality
+  walletBalance?: number; // Saldo de Vendas (Receitas)
+  topUpBalance?: number; // Saldo de Carregamento (Para gastar na plataforma)
+  settings?: UserSettings; // New User Settings
+  accountStatus?: 'Active' | 'Blocked' | 'Pending'; // Admin status control
+  bankDetails?: UserBankDetails; // New: Company Bank Details for withdrawals
 }
 
 export interface Transaction {
   id: string;
-  user: string;
-  plan: PlanType;
+  user: string; // User ID who owns this transaction record
+  plan?: string;
+  productName?: string; // For product sales/purchases
   amount: number;
   date: string;
+  timestamp: number;
   status: 'Pendente' | 'Aprovado' | 'Rejeitado';
-  method: 'Multicaixa' | 'Visa';
+  method: 'Multicaixa' | 'Visa' | 'Carteira' | 'Transferencia' | 'Referencia';
+  category: 'PURCHASE' | 'SALE' | 'DEPOSIT' | 'WITHDRAWAL' | 'PLAN_PAYMENT';
+  reference: string; // Transaction ID for receipt
+  otherPartyName?: string; // Who bought or sold
+  proofUrl?: string; // URL of the payment proof
+}
+
+export interface Attachment {
+  type: 'image' | 'document';
+  url: string;
+  name: string;
 }
 
 export interface Message {
@@ -122,7 +151,51 @@ export interface Message {
   productId?: string;
   productName?: string;
   content: string;
+  attachment?: Attachment; // Added Attachment
   timestamp: number;
   isRead: boolean;
   isFromBusiness: boolean; // True if it's a reply from the company
+}
+
+export interface Notification {
+  id: string;
+  userId: string; // Who receives the notification
+  title: string;
+  desc: string;
+  timestamp: number;
+  read: boolean;
+  type: 'message' | 'promo' | 'alert' | 'success' | 'info';
+  relatedEntityId?: string; // ID of the sender or related resource (e.g., Message Sender ID)
+}
+
+// --- NEW ADMIN TYPES ---
+
+export interface PaymentGatewayConfig {
+  id: string;
+  name: string; // e.g., 'Multicaixa Express', 'Visa'
+  provider: string; // 'Proxypay', 'CyberSource', 'Stripe', etc.
+  apiKey?: string;
+  apiSecret?: string;
+  environment: 'Sandbox' | 'Production';
+  isActive: boolean;
+  supportsReferences: boolean; // Does it support generating references?
+}
+
+export interface PlatformBankAccount {
+  id: string;
+  bankName: string;
+  iban: string;
+  accountNumber: string;
+  holderName: string;
+  isActive: boolean;
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  companyId: string;
+  companyName: string;
+  amount: number;
+  requestDate: string;
+  status: 'Pendente' | 'Processado' | 'Rejeitado';
+  bankDetails: string; // Summary of where to send money
 }

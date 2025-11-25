@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
-import { Search, Bell, ChevronRight, ArrowLeft, X, Clock, CheckCircle, Star, Info, MapPin, Phone, Mail, FileText, Globe, GitBranch } from 'lucide-react';
-import { Bank, Product, User } from '../types';
+import { Search, Bell, ChevronRight, ArrowLeft, X, Clock, CheckCircle, Star, Info, MapPin, Phone, Mail, FileText, Globe, GitBranch, Store, LayoutGrid, ArrowRight } from 'lucide-react';
+import { Bank, Product, User, Notification } from '../types';
 
 interface DashboardProps {
   products: Product[];
@@ -9,6 +10,9 @@ interface DashboardProps {
   onSelectBank: (bank: Bank) => void;
   onSelectProduct: (product: Product) => void;
   onViewMarket: () => void;
+  notifications?: Notification[];
+  onClearNotifications?: () => void;
+  onNotificationClick?: (notification: Notification) => void; // Added handler
 }
 
 // Component helper to handle safe logo rendering
@@ -33,10 +37,12 @@ const BankLogo = ({ name, logo, large = false }: { name: string, logo: string, l
     );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ products, banks, otherCompanies, onSelectBank, onSelectProduct, onViewMarket }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ products, banks, otherCompanies, onSelectBank, onSelectProduct, onViewMarket, notifications = [], onClearNotifications, onNotificationClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   // Filter products for the "Highlights" slider - Memoized
   const highlightedProducts = useMemo(() => products.filter(p => p.isPromoted).slice(0, 8), [products]);
@@ -58,6 +64,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ products, banks, otherComp
         b.name.toLowerCase().includes(q)
     );
   }, [banks, otherCompanies, searchQuery]);
+
+  const handleOpenNotifications = () => {
+      setShowNotifications(true);
+      if (onClearNotifications) {
+          onClearNotifications(); // Mark as read when opening (simplified logic)
+      }
+  };
+
+  const getNotificationIcon = (type: string) => {
+      switch(type) {
+          case 'promo': return 'bg-teal-100 text-teal-600';
+          case 'alert': return 'bg-red-100 text-red-600';
+          case 'success': return 'bg-green-100 text-green-600';
+          case 'message': return 'bg-blue-100 text-blue-600';
+          default: return 'bg-indigo-100 text-indigo-600';
+      }
+  }
 
   return (
     <div className="h-full bg-gray-50 dark:bg-gray-900 overflow-y-auto pb-20 no-scrollbar relative transition-colors duration-300">
@@ -167,27 +190,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ products, banks, otherComp
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {/* Mock Notifications */}
-                    {[
-                        { title: 'Promoção Relâmpago!', desc: 'iPhone 15 com 15% de desconto na Tech Angola.', time: '2 min atrás', icon: 'bg-teal-100 text-teal-600', type: 'promo' },
-                        { title: 'Alerta de Segurança', desc: 'Novo acesso detetado na sua conta em Luanda.', time: '1 hora atrás', icon: 'bg-indigo-100 text-indigo-600', type: 'alert' },
-                        { title: 'Pagamento Recebido', desc: 'Transferência de 50.000 Kz confirmada.', time: 'Ontem', icon: 'bg-green-100 text-green-600', type: 'success' },
-                        { title: 'Bem-vindo ao Facilita', desc: 'Explore os melhores serviços e produtos de Angola.', time: '2 dias atrás', icon: 'bg-blue-100 text-blue-600', type: 'info' }
-                    ].map((notif, idx) => (
-                        <div key={idx} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex gap-4 items-start">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${notif.icon}`}>
-                                {notif.type === 'promo' && <Bell size={18} />}
-                                {notif.type === 'alert' && <Clock size={18} />}
-                                {notif.type === 'success' && <CheckCircle size={18} />}
-                                {notif.type === 'info' && <Bell size={18} />}
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{notif.title}</h3>
-                                <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed mt-0.5">{notif.desc}</p>
-                                <p className="text-[10px] text-gray-400 mt-2 font-medium">{notif.time}</p>
-                            </div>
+                    {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
+                            <Bell size={48} className="text-gray-400 mb-4" />
+                            <p className="text-gray-500 font-medium">Sem novas notificações.</p>
                         </div>
-                    ))}
+                    ) : (
+                        notifications.map((notif) => (
+                            <div 
+                                key={notif.id} 
+                                onClick={() => {
+                                    if(onNotificationClick) onNotificationClick(notif);
+                                }}
+                                className={`bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border ${notif.read ? 'border-gray-100 dark:border-gray-700' : 'border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-900/10'} flex gap-4 items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors active:scale-95`}
+                            >
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getNotificationIcon(notif.type)}`}>
+                                    {notif.type === 'promo' && <Bell size={18} />}
+                                    {notif.type === 'alert' && <Clock size={18} />}
+                                    {notif.type === 'success' && <CheckCircle size={18} />}
+                                    {notif.type === 'info' && <Bell size={18} />}
+                                    {notif.type === 'message' && <Mail size={18} />}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-sm">{notif.title}</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed mt-0.5">{notif.desc}</p>
+                                    <p className="text-[10px] text-gray-400 mt-2 font-medium">
+                                        {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
              </div>
         </div>
@@ -212,11 +245,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ products, banks, otherComp
                         </div>
                     </button>
                     <button 
-                        onClick={() => setShowNotifications(true)}
+                        onClick={handleOpenNotifications}
                         className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-indigo-200 hover:text-indigo-600 active:scale-95 transition-all shadow-sm relative"
                     >
                         <Bell size={20} />
-                        <span className="absolute top-2 right-2.5 w-2 h-2 bg-teal-500 rounded-full border border-white dark:border-gray-800"></span>
+                        {unreadCount > 0 && (
+                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-gray-800"></span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -353,41 +388,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ products, banks, otherComp
   );
 };
 
-interface BankProfileProps {
-    user: User;
-    bank: Bank;
-    products: Product[];
-    allBanks?: Bank[]; // Pass all banks to find branches
-    onBack: () => void;
-    onSelectProduct: (product: Product) => void;
-    onToggleFollow: (companyId: string) => void;
-    onRate: (companyId: string) => void;
-    onSelectBranch?: (branch: Bank) => void;
-}
+export const BankProfile = ({ user, bank, products, allBanks, onBack, onSelectProduct, onToggleFollow, onRate, onSelectBranch }: any) => {
+    const [showDetails, setShowDetails] = useState(false);
+    const [detailTab, setDetailTab] = useState<'INFO' | 'BRANCHES'>('INFO');
+    const [viewingBranch, setViewingBranch] = useState<Bank | null>(null);
 
-export const BankProfile: React.FC<BankProfileProps> = ({ user, bank, products, allBanks = [], onBack, onSelectProduct, onToggleFollow, onRate, onSelectBranch }) => {
-    // Dynamic Stats
-    const bankProducts = products.filter(p => p.bankId === bank.id || p.ownerId === bank.id || p.companyName === bank.name);
-    const publicationCount = bankProducts.length;
-    
-    // Find Branches
-    const branches = allBanks.filter(b => b.parentId === bank.id);
+    // Get branches linked to this bank/company
+    const companyBranches = allBanks.filter((b: Bank) => b.parentId === bank.id && b.type === 'BRANCH');
 
-    const isFollowing = user.following?.includes(bank.id);
-    const [hasRated, setHasRated] = useState(false);
-    const [view, setView] = useState<'PRODUCTS' | 'DETAILS'>('PRODUCTS');
-
-    const handleRate = () => {
-        if (!hasRated) {
-            onRate(bank.id);
-            setHasRated(true);
-        }
-    };
-
-    const formatCount = (num: number) => {
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-        return num.toString();
-    };
+    // Filter products for specific branch viewing
+    const branchProducts = viewingBranch 
+        ? products.filter((p: Product) => p.ownerId === viewingBranch.id)
+        : [];
 
     return (
         <div className="h-full bg-gray-50 dark:bg-gray-900 overflow-y-auto pb-20 relative animate-[slideInRight_0.3s_ease-out] transition-colors duration-300">
@@ -407,220 +419,330 @@ export const BankProfile: React.FC<BankProfileProps> = ({ user, bank, products, 
                      </div>
                  )}
             </div>
-
-            {/* Content Container with Max Width for Desktop */}
+            
             <div className="max-w-7xl mx-auto w-full px-4 md:px-8">
                 {/* Bank Info Card */}
                 <div className="-mt-12 relative z-10">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl shadow-gray-200 dark:shadow-gray-900/50 mb-6 relative">
-                        <div className="flex flex-col md:flex-row md:items-end md:justify-between items-center mb-4 relative">
-                            
+                         <div className="flex flex-col md:flex-row md:items-end md:justify-between items-center mb-4 relative">
                             <div className="flex flex-col items-center md:items-start md:flex-row md:gap-4">
                                 <div className="w-24 h-24 bg-white dark:bg-gray-800 rounded-full shadow-md p-1 -mt-16 flex items-center justify-center overflow-hidden border border-gray-100 dark:border-gray-700 z-10">
                                     <BankLogo name={bank.name} logo={bank.logo} large />
                                 </div>
                                 <div className="text-center md:text-left mt-2 md:mt-0 md:mb-1">
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{bank.name}</h1>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm md:max-w-lg">{bank.description}</p>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm md:max-w-lg line-clamp-2">{bank.description}</p>
                                 </div>
                             </div>
-                            
                             <div className="flex gap-2 mt-4 md:mt-0">
-                                <button 
-                                    onClick={handleRate}
-                                    disabled={hasRated}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${hasRated ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-yellow-50 hover:text-yellow-600 dark:hover:bg-yellow-900/20 dark:hover:text-yellow-400'}`}
-                                >
-                                    <Star size={14} className={hasRated ? "fill-yellow-600 dark:fill-yellow-400" : ""} />
-                                    {hasRated ? "Avaliado" : "Avaliar"}
+                                <button onClick={() => onToggleFollow(bank.id)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                                    Seguir
                                 </button>
-
-                                <button 
-                                    onClick={() => setView('DETAILS')}
-                                    className={`px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 ${view === 'DETAILS' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : ''}`}
-                                >
-                                    <Info size={14} />
-                                    Detalhes
+                                <button onClick={() => onRate(bank.id)} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-1">
+                                    <Star size={14} /> Avaliar
                                 </button>
-
-                                <button 
-                                    onClick={() => onToggleFollow(bank.id)}
-                                    className={`px-4 py-2 text-xs font-bold rounded-lg shadow-lg transition-all ${isFollowing 
-                                        ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800 shadow-sm' 
-                                        : 'bg-indigo-600 text-white shadow-indigo-200 dark:shadow-indigo-900/40 hover:bg-indigo-700'}`}
-                                >
-                                    {isFollowing ? 'Seguindo' : 'Seguir'}
+                                <button onClick={() => { setShowDetails(true); setDetailTab('INFO'); setViewingBranch(null); }} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-1">
+                                    <Info size={14} /> Detalhes
                                 </button>
                             </div>
-                        </div>
-                        
-                        <div className="flex gap-6 border-t border-gray-100 dark:border-gray-700 pt-4 justify-around md:justify-start md:gap-12">
+                         </div>
+                         
+                         {/* Stats */}
+                         <div className="flex gap-6 border-t border-gray-100 dark:border-gray-700 pt-4 justify-around md:justify-start md:gap-12">
                             <div className="text-center md:text-left">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg">{publicationCount}</p>
+                                <p className="font-bold text-gray-900 dark:text-white text-lg">{products.filter((p: Product) => p.ownerId === bank.id).length}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Publicações</p>
                             </div>
-                            <div className="text-center md:text-left">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg">{formatCount(bank.reviews)}</p>
+                             <div className="text-center md:text-left">
+                                <p className="font-bold text-gray-900 dark:text-white text-lg">{bank.reviews}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Avaliações</p>
                             </div>
                             <div className="text-center md:text-left">
-                                <p className="font-bold text-gray-900 dark:text-white text-lg">{formatCount(bank.followers)}</p>
+                                <p className="font-bold text-gray-900 dark:text-white text-lg">{bank.followers}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Seguidores</p>
                             </div>
                         </div>
                     </div>
-
-                    {view === 'PRODUCTS' ? (
-                        <>
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 px-1">Serviços e Novidades</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {bankProducts.length > 0 ? (
-                                    bankProducts.map(product => (
-                                        <button 
-                                            key={product.id} 
-                                            onClick={() => onSelectProduct(product)}
-                                            className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 flex h-28 w-full text-left active:scale-[0.98] transition-transform hover:shadow-md"
-                                        >
-                                            <div className="w-28 h-full bg-gray-200 dark:bg-gray-700 shrink-0">
-                                                <img src={product.image} className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="p-3 flex flex-col justify-between flex-1">
-                                                <div>
-                                                    <div className="flex justify-between items-start">
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block ${product.category === 'Serviço' ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'}`}>
-                                                            {product.category}
-                                                        </span>
-                                                        {product.isPromoted && <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold">★ Destaque</span>}
-                                                    </div>
-                                                    <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2">{product.title}</h3>
-                                                </div>
-                                                <div className="flex justify-between items-center mt-2">
-                                                    <span className="text-indigo-600 dark:text-indigo-400 font-medium text-xs">Saber mais</span>
-                                                    <ChevronRight size={16} className="text-gray-300 dark:text-gray-600" />
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div className="col-span-full text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-                                        <p className="text-gray-400 text-sm">Nenhuma publicação recente.</p>
+                    
+                    {/* Products Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {products.filter((p: Product) => p.ownerId === bank.id || p.companyName === bank.name).map((product: Product) => (
+                            <button 
+                                key={product.id} 
+                                onClick={() => onSelectProduct(product)}
+                                className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 flex h-28 w-full text-left active:scale-[0.98] transition-transform hover:shadow-md"
+                            >
+                                <div className="w-28 h-full bg-gray-200 dark:bg-gray-700 shrink-0">
+                                    <img src={product.image} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="p-3 flex flex-col justify-between flex-1">
+                                    <div>
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 mb-1 inline-block">{product.category}</span>
+                                        </div>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2">{product.title}</h3>
                                     </div>
-                                )}
+                                    <div className="flex justify-between items-center mt-2">
+                                        <span className="text-indigo-600 dark:text-indigo-400 font-medium text-xs">Saber mais</span>
+                                        <ChevronRight size={16} className="text-gray-300 dark:text-gray-600" />
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Details Modal - Improved Version */}
+            {showDetails && (
+                <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+                    <div className="bg-white dark:bg-gray-800 rounded-t-3xl md:rounded-3xl w-full max-w-lg md:max-w-2xl h-[90vh] md:h-[800px] shadow-2xl relative animate-[slideUp_0.3s_ease-out] flex flex-col overflow-hidden">
+                        
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 z-20 flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-3">
+                                    {viewingBranch ? (
+                                        <button onClick={() => setViewingBranch(null)} className="p-1 -ml-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full mr-1">
+                                            <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
+                                        </button>
+                                    ) : (
+                                        <div className="w-10 h-10 bg-gray-50 dark:bg-gray-700 rounded-full overflow-hidden border border-gray-200 dark:border-gray-600">
+                                            <BankLogo name={bank.name} logo={bank.logo} />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-900 dark:text-white line-clamp-1">
+                                            {viewingBranch ? viewingBranch.name : bank.name}
+                                        </h2>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            {viewingBranch ? 'Detalhes da Agência' : (bank.isBank ? 'Instituição Bancária' : 'Empresa Verificada')}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setShowDetails(false)}
+                                    className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
-                        </>
-                    ) : (
-                        <div className="animate-[fadeIn_0.2s_ease-out] grid grid-cols-1 lg:grid-cols-3 gap-6">
-                             <div className="lg:col-span-2 space-y-4">
-                                 <div className="flex items-center gap-2 mb-4">
-                                    <button onClick={() => setView('PRODUCTS')} className="p-1 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 transition-colors">
-                                        <ArrowLeft size={16} className="text-gray-700 dark:text-gray-300"/>
+
+                            {/* Tabs (Only if not viewing specific branch) */}
+                            {!viewingBranch && (
+                                <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                                    <button 
+                                        onClick={() => setDetailTab('INFO')}
+                                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${detailTab === 'INFO' ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                    >
+                                        Sobre
                                     </button>
-                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Informações da Empresa</h2>
-                                 </div>
-                                 
-                                 {/* About */}
-                                 <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                     <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Sobre</h3>
-                                     <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{bank.description}</p>
-                                 </div>
+                                    <button 
+                                        onClick={() => setDetailTab('BRANCHES')}
+                                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${detailTab === 'BRANCHES' ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                    >
+                                        Agências 
+                                        {companyBranches.length > 0 && (
+                                            <span className="bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200 text-[10px] px-1.5 py-0.5 rounded-full">{companyBranches.length}</span>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
-                                 {/* Location */}
-                                 {(bank.address || bank.province) && (
-                                     <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                         <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Localização</h3>
-                                         <div className="flex items-start gap-3 text-sm">
-                                             <div className="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg"><MapPin size={16} className="text-gray-500 dark:text-gray-400"/></div>
-                                             <div>
-                                                 <p className="font-medium text-gray-800 dark:text-gray-200">{bank.address || 'Endereço não informado'}</p>
-                                                 <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                                                     {[bank.municipality, bank.province].filter(Boolean).join(', ')}
-                                                 </p>
-                                             </div>
-                                         </div>
-                                         {/* Real Map Iframe */}
-                                         <div className="mt-3 h-64 md:h-80 w-full bg-gray-100 dark:bg-gray-700 rounded-xl relative overflow-hidden border border-gray-200 dark:border-gray-600">
-                                             <iframe 
-                                                title="Mapa de Localização"
-                                                width="100%" 
-                                                height="100%" 
-                                                style={{ border: 0 }}
-                                                loading="lazy"
-                                                allowFullScreen
-                                                referrerPolicy="no-referrer-when-downgrade"
-                                                src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                                                    [bank.address, bank.municipality, bank.province, "Angola"].filter(Boolean).join(", ")
-                                                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
-                                             ></iframe>
-                                         </div>
-                                     </div>
-                                 )}
-                             </div>
-                             
-                             <div className="space-y-4">
-                                 {/* Contact & Legal */}
-                                 <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
-                                     <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Contactos e Dados</h3>
-                                     
-                                     {bank.nif && (
-                                         <div className="flex items-center gap-3 text-sm">
-                                             <div className="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg"><FileText size={16} className="text-gray-500 dark:text-gray-400"/></div>
-                                             <div>
-                                                 <p className="text-xs text-gray-400">NIF</p>
-                                                 <p className="font-medium text-gray-800 dark:text-gray-200">{bank.nif}</p>
-                                             </div>
-                                         </div>
-                                     )}
-                                     
-                                     {bank.phone && (
-                                         <div className="flex items-center gap-3 text-sm">
-                                             <div className="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg"><Phone size={16} className="text-gray-500 dark:text-gray-400"/></div>
-                                             <div>
-                                                 <p className="text-xs text-gray-400">Telefone</p>
-                                                 <p className="font-medium text-gray-800 dark:text-gray-200">{bank.phone}</p>
-                                             </div>
-                                         </div>
-                                     )}
+                        {/* Modal Content - Scrollable */}
+                        <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
+                            
+                            {/* TAB: INFO */}
+                            {detailTab === 'INFO' && !viewingBranch && (
+                                <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
+                                            <Info size={14} /> Descrição
+                                        </h4>
+                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                            {bank.description || "Sem descrição disponível."}
+                                        </p>
+                                    </div>
 
-                                     {bank.email && (
-                                         <div className="flex items-center gap-3 text-sm">
-                                             <div className="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg"><Mail size={16} className="text-gray-500 dark:text-gray-400"/></div>
-                                             <div>
-                                                 <p className="text-xs text-gray-400">Email</p>
-                                                 <p className="font-medium text-gray-800 dark:text-gray-200 break-all">{bank.email}</p>
-                                             </div>
-                                         </div>
-                                     )}
-                                 </div>
-                                 
-                                 {/* Branches Section - Only if HQ */}
-                                 {branches.length > 0 && bank.type !== 'BRANCH' && (
-                                    <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                                            <GitBranch size={16} className="text-indigo-600" />
-                                            Agências e Filiais
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {branches.map(branch => (
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 flex items-center gap-2">
+                                            <Store size={14} /> Contactos e Sede
+                                        </h4>
+                                        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                                             {bank.address && (
+                                                <div className="flex items-start gap-4 p-4 border-b border-gray-50 dark:border-gray-700/50">
+                                                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                                        <MapPin size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-400 uppercase font-bold mb-0.5">Endereço Principal</p>
+                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                                            {bank.address}, {bank.municipality}, {bank.province}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {bank.phone && (
+                                                <div className="flex items-center gap-4 p-4 border-b border-gray-50 dark:border-gray-700/50">
+                                                     <div className="bg-teal-50 dark:bg-teal-900/30 p-2 rounded-lg text-teal-600 dark:text-teal-400">
+                                                        <Phone size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-400 uppercase font-bold mb-0.5">Telefone</p>
+                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{bank.phone}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {bank.email && (
+                                                <div className="flex items-center gap-4 p-4 border-b border-gray-50 dark:border-gray-700/50">
+                                                     <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400">
+                                                        <Mail size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-400 uppercase font-bold mb-0.5">Email</p>
+                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{bank.email}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {bank.nif && (
+                                                <div className="flex items-center gap-4 p-4">
+                                                     <div className="bg-orange-50 dark:bg-orange-900/30 p-2 rounded-lg text-orange-600 dark:text-orange-400">
+                                                        <FileText size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-400 uppercase font-bold mb-0.5">NIF</p>
+                                                        <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{bank.nif}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB: BRANCHES LIST */}
+                            {detailTab === 'BRANCHES' && !viewingBranch && (
+                                <div className="animate-[fadeIn_0.3s_ease-out]">
+                                    {companyBranches.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-10 opacity-60">
+                                            <GitBranch size={48} className="text-gray-400 mb-4" />
+                                            <p className="text-gray-500 font-medium text-center">Nenhuma agência cadastrada.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {companyBranches.map((branch: Bank) => (
                                                 <button 
                                                     key={branch.id}
-                                                    onClick={() => onSelectBranch && onSelectBranch(branch)}
-                                                    className="w-full text-left p-3 bg-gray-50 dark:bg-gray-700 rounded-xl flex justify-between items-center hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                                    onClick={() => setViewingBranch(branch)}
+                                                    className="w-full bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all flex items-center justify-between group"
                                                 >
-                                                    <div>
-                                                        <p className="text-sm font-bold text-gray-800 dark:text-white">{branch.name}</p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{branch.municipality}, {branch.province}</p>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                                            <MapPin size={20} />
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <h4 className="font-bold text-gray-900 dark:text-white text-sm group-hover:text-indigo-600 transition-colors">
+                                                                {branch.name}
+                                                            </h4>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                {branch.municipality}, {branch.province}
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-1.5">
+                                                                <span className="text-[10px] font-medium bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md text-gray-600 dark:text-gray-300">
+                                                                    {products.filter((p: Product) => p.ownerId === branch.id).length} Produtos
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <ChevronRight size={16} className="text-gray-400" />
+                                                    <div className="w-8 h-8 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                                        <ArrowRight size={16} />
+                                                    </div>
                                                 </button>
                                             ))}
                                         </div>
-                                    </div>
-                                 )}
-                             </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* VIEW: SPECIFIC BRANCH DETAILS */}
+                            {viewingBranch && (
+                                <div className="space-y-6 animate-[slideLeft_0.2s_ease-out]">
+                                     {/* Branch Contact Info */}
+                                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                                         <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Localização e Contacto</h4>
+                                         <div className="space-y-3">
+                                            <div className="flex gap-3">
+                                                <MapPin size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                                                <p className="text-sm text-gray-800 dark:text-gray-200">
+                                                    {viewingBranch.address || 'Endereço não informado'}, {viewingBranch.municipality}
+                                                </p>
+                                            </div>
+                                            {viewingBranch.phone && (
+                                                <div className="flex gap-3">
+                                                    <Phone size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                                                    <p className="text-sm text-gray-800 dark:text-gray-200">
+                                                        {viewingBranch.phone}
+                                                    </p>
+                                                </div>
+                                            )}
+                                         </div>
+                                     </div>
+
+                                     {/* Branch Products */}
+                                     <div>
+                                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
+                                            <LayoutGrid size={14} /> Produtos nesta Agência
+                                        </h4>
+                                        {branchProducts.length === 0 ? (
+                                            <div className="text-center py-8 bg-gray-100 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                                                <p className="text-sm text-gray-500 font-medium">Nenhum produto exclusivo desta agência.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-3">
+                                                {branchProducts.map((product: Product) => (
+                                                    <button 
+                                                        key={product.id}
+                                                        onClick={() => { setShowDetails(false); onSelectProduct(product); }}
+                                                        className="flex gap-3 p-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:border-indigo-200 transition-colors text-left"
+                                                    >
+                                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shrink-0">
+                                                            <img src={product.image} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <h5 className="font-bold text-gray-900 dark:text-white text-sm truncate">{product.title}</h5>
+                                                            <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold inline-block mb-1">
+                                                                {product.category}
+                                                            </span>
+                                                            <p className="text-teal-600 font-bold text-xs">
+                                                                {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} Kz
+                                                            </p>
+                                                        </div>
+                                                        <div className="self-center pr-2">
+                                                            <ChevronRight size={16} className="text-gray-300" />
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                     </div>
+                                </div>
+                            )}
+
                         </div>
-                    )}
+
+                        {/* Footer Close Button - Always visible */}
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 z-20">
+                             <button 
+                                onClick={() => setShowDetails(false)} 
+                                className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-gray-200 dark:shadow-none"
+                             >
+                                 Fechar Detalhes
+                             </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

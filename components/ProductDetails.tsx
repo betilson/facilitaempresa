@@ -1,10 +1,9 @@
-
-
-import React, { useState } from 'react';
-import { Product } from '../types';
-import { ArrowLeft, Share2, Heart, CheckCircle2, ShieldCheck, Truck, Star, MessageCircle, Phone, ShoppingCart, Plus, Image as ImageIcon, Send, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Product, Attachment } from '../types';
+import { ArrowLeft, Share2, Heart, CheckCircle2, ShieldCheck, Truck, Star, MessageCircle, ShoppingCart, Plus, Image as ImageIcon, Send, X, FileText, Paperclip, Loader2, CreditCard } from 'lucide-react';
 import { Button } from './Button';
 import { Toast, ToastType } from './Toast';
+import { processImage } from '../utils/imageOptimizer';
 
 interface ProductDetailsProps {
   product: Product;
@@ -14,7 +13,8 @@ interface ProductDetailsProps {
   onOpenCart: () => void;
   isFavorite: boolean;
   onToggleFavorite: () => void;
-  onSendMessage?: (content: string) => void;
+  onSendMessage?: (content: string, attachment?: Attachment) => void;
+  companyPhone?: string; // New prop for dynamic phone number
 }
 
 export const ProductDetails: React.FC<ProductDetailsProps> = ({ 
@@ -25,13 +25,19 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   onOpenCart,
   isFavorite,
   onToggleFavorite,
-  onSendMessage
+  onSendMessage,
+  companyPhone
 }) => {
   const isService = product.category === 'Serviço';
   const [activeImage, setActiveImage] = useState(product.image);
   const [showShareToast, setShowShareToast] = useState(false);
   const [showMsgModal, setShowMsgModal] = useState(false);
   const [msgContent, setMsgContent] = useState('');
+  
+  // Attachment State
+  const [attachment, setAttachment] = useState<Attachment | undefined>(undefined);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Toast State for actions
   const [toast, setToast] = useState<{ show: boolean; message: string; type: ToastType }>({
@@ -66,15 +72,80 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
       setToast({ show: true, message: 'Produto adicionado ao carrinho!', type: 'success' });
   };
 
+  const handleBuyNow = () => {
+      onAddToCart(product);
+      onOpenCart();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          setIsUploading(true);
+          try {
+              let url = '';
+              let type: 'image' | 'document' = 'document';
+
+              if (file.type.startsWith('image/')) {
+                  const { optimized } = await processImage(file);
+                  url = optimized;
+                  type = 'image';
+              } else {
+                  // For docs, simple reader
+                  const reader = new FileReader();
+                  url = await new Promise((resolve) => {
+                      reader.onload = (e) => resolve(e.target?.result as string);
+                      reader.readAsDataURL(file);
+                  });
+              }
+
+              setAttachment({
+                  type,
+                  url,
+                  name: file.name
+              });
+          } catch (error) {
+              setToast({ show: true, message: 'Erro ao carregar arquivo', type: 'error' });
+          } finally {
+              setIsUploading(false);
+          }
+      }
+  };
+
   const handleSendInternalMessage = (e: React.FormEvent) => {
       e.preventDefault();
-      if (!msgContent.trim()) return;
+      if (!msgContent.trim() && !attachment) return;
       
       if (onSendMessage) {
-          onSendMessage(msgContent);
-          setToast({ show: true, message: 'Mensagem enviada com sucesso!', type: 'success' });
+          onSendMessage(msgContent, attachment);
+          // Feedback personalizado para serviços conforme solicitado
+          const successMessage = isService 
+            ? 'Solicitação enviada! Aguarde a resposta da empresa.' 
+            : 'Mensagem enviada com sucesso!';
+            
+          setToast({ show: true, message: successMessage, type: 'success' });
           setMsgContent('');
+          setAttachment(undefined);
           setShowMsgModal(false);
+      }
+  };
+
+  const handleWhatsAppClick = () => {
+      // Use company phone if available
+      let cleanPhone = companyPhone ? companyPhone.replace(/[^0-9]/g, '') : '';
+      
+      // Auto-fix for Angola numbers: Ensure it starts with 244
+      // If length is 9 (e.g. 923123456), add 244 prefix
+      if (cleanPhone.length === 9 && (cleanPhone.startsWith('9') || cleanPhone.startsWith('2'))) {
+          cleanPhone = '244' + cleanPhone;
+      }
+      
+      // If starts with 00244, remove 00
+      if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
+
+      if (cleanPhone) {
+          window.open(`https://wa.me/${cleanPhone}?text=Olá, tenho interesse no serviço: ${product.title}`, '_blank');
+      } else {
+          setToast({ show: true, message: 'Número da empresa não disponível ou inválido.', type: 'error' });
       }
   };
 
@@ -95,27 +166,76 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
           </div>
       )}
 
-      {/* Message Modal for Services */}
+      {/* Message Modal for Services/Contact */}
       {showMsgModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
               <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-[scaleIn_0.2s_ease-out]">
                   <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">Contactar Empresa</h3>
+                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                          {isService ? 'Solicitar Serviço' : 'Contactar Empresa'}
+                      </h3>
                       <button onClick={() => setShowMsgModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
                           <X size={20} className="text-gray-500 dark:text-gray-400" />
                       </button>
                   </div>
+                  
+                  {isService && (
+                      <div className="mb-4 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg flex gap-3 items-start">
+                          <FileText size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-indigo-800 dark:text-indigo-200">
+                              Descreva o que precisa. A empresa receberá o seu pedido e entrará em contacto pelo chat do aplicativo.
+                          </p>
+                      </div>
+                  )}
+
                   <form onSubmit={handleSendInternalMessage}>
                       <textarea 
                           value={msgContent}
                           onChange={(e) => setMsgContent(e.target.value)}
-                          placeholder="Olá, gostaria de saber mais sobre este serviço..."
-                          className="w-full h-32 p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 outline-none text-gray-900 dark:text-white resize-none mb-4"
+                          placeholder={isService ? "Olá, gostaria de um orçamento para..." : "Olá, tenho uma dúvida sobre este produto..."}
+                          className="w-full h-32 p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 outline-none text-gray-900 dark:text-white resize-none mb-2 focus:border-indigo-500 transition-colors"
                           autoFocus
                       />
-                      <Button fullWidth type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                      
+                      {/* Attachment Preview */}
+                      {attachment && (
+                          <div className="mb-3 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex justify-between items-center">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                  {attachment.type === 'image' ? (
+                                      <ImageIcon size={16} className="text-indigo-500" />
+                                  ) : (
+                                      <FileText size={16} className="text-orange-500" />
+                                  )}
+                                  <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[180px]">{attachment.name}</span>
+                              </div>
+                              <button type="button" onClick={() => setAttachment(undefined)} className="text-gray-500 hover:text-red-500">
+                                  <X size={14} />
+                              </button>
+                          </div>
+                      )}
+
+                      <div className="flex justify-between items-center mb-4">
+                          <input 
+                              type="file" 
+                              ref={fileInputRef} 
+                              className="hidden" 
+                              onChange={handleFileSelect}
+                              accept="image/*,application/pdf"
+                          />
+                          <button 
+                              type="button" 
+                              onClick={() => fileInputRef.current?.click()}
+                              className="text-xs font-bold text-gray-500 hover:text-indigo-600 flex items-center gap-1"
+                              disabled={isUploading}
+                          >
+                              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+                              {isUploading ? 'Carregando...' : 'Anexar arquivo'}
+                          </button>
+                      </div>
+
+                      <Button fullWidth type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isUploading}>
                           <Send size={18} className="mr-2" />
-                          Enviar Mensagem
+                          {isService ? 'Enviar Solicitação' : 'Enviar Mensagem'}
                       </Button>
                   </form>
               </div>
@@ -265,55 +385,76 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     </div>
                 )}
             </div>
-        </div>
-      </div>
 
-      {/* Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3 z-40 max-w-md mx-auto shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-        {isService ? (
-            <>
+            {/* Buy Now Button (Below Delivery Info) */}
+            {!isService && (
+                <div className="mt-4 animate-[fadeIn_0.3s_ease-out]">
+                    <Button 
+                        fullWidth 
+                        onClick={handleBuyNow}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 border-none"
+                    >
+                        <CreditCard className="mr-2" size={20} />
+                        Comprar Agora
+                    </Button>
+                </div>
+            )}
+        </div>
+
+        {/* Service Action Buttons (Inline) */}
+        {isService && (
+            <div className="mt-8 mb-6 flex flex-col gap-3 animate-[fadeIn_0.3s_ease-out]">
                 <Button 
-                    variant="outline" 
-                    className="w-16 p-0 flex items-center justify-center border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800" 
-                    onClick={() => window.open(`https://wa.me/244923456789?text=Olá, tenho interesse no serviço: ${product.title}`)}
-                    title="WhatsApp"
-                >
-                    <MessageCircle size={24} className="text-green-600" />
-                </Button>
-                <Button 
-                    className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 border-none" 
+                    className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 h-12 text-lg border-none" 
                     onClick={() => setShowMsgModal(true)}
                 >
                     <Send size={20} />
-                    Mensagem Interna
+                    Solicitar Serviço
                 </Button>
-            </>
-        ) : (
-            <>
-                <button 
-                    onClick={handleAddToCart}
-                    className="px-4 rounded-xl border-2 border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors active:scale-95 flex flex-col items-center justify-center h-full min-h-[52px]"
-                    aria-label="Adicionar ao Carrinho"
-                >
-                    <Plus size={24} />
-                    <span className="text-[9px] uppercase tracking-wide">Adicionar</span>
-                </button>
                 <Button 
-                    fullWidth 
-                    variant="primary" 
-                    className="shadow-indigo-600/30 flex-1 h-full min-h-[52px] dark:bg-indigo-600 dark:hover:bg-indigo-700"
-                    onClick={() => {
-                        handleAddToCart();
-                        // Optional: Open cart automatically if preferred, but adding to cart + toast is usually better ux
-                        // onOpenCart(); 
-                    }}
+                    variant="outline" 
+                    className="w-full gap-2 border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 h-12 text-lg dark:text-green-400 dark:border-green-800" 
+                    onClick={handleWhatsAppClick}
+                    title="WhatsApp"
                 >
-                    <ShoppingCart size={20} className="mr-1" />
-                    Comprar
+                    <MessageCircle size={20} />
+                    Puxar no WhatsApp
                 </Button>
-            </>
+                <Button 
+                    className="w-full gap-2 bg-gray-900 hover:bg-black text-white shadow-lg shadow-gray-200 dark:shadow-none h-12 text-lg border-none" 
+                    onClick={handleBuyNow}
+                >
+                    <CreditCard size={20} />
+                    Pagar pelo Serviço
+                </Button>
+            </div>
         )}
       </div>
+
+      {/* Bottom Action Bar (Only for Products now) */}
+      {!isService && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3 z-40 max-w-md mx-auto shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+            <button 
+                onClick={handleAddToCart}
+                className="px-4 rounded-xl border-2 border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors active:scale-95 flex flex-col items-center justify-center h-full min-h-[52px]"
+                aria-label="Adicionar ao Carrinho"
+            >
+                <Plus size={24} />
+                <span className="text-[9px] uppercase tracking-wide">Adicionar</span>
+            </button>
+            <Button 
+                fullWidth 
+                variant="primary" 
+                className="shadow-indigo-600/30 flex-1 h-full min-h-[52px] dark:bg-indigo-600 dark:hover:bg-indigo-700"
+                onClick={() => {
+                    handleAddToCart();
+                }}
+            >
+                <ShoppingCart size={20} className="mr-1" />
+                Comprar
+            </Button>
+        </div>
+      )}
     </div>
   );
 };
