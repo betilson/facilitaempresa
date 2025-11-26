@@ -1,0 +1,7 @@
+{
+  "name": "Facilita",
+  "description": "Localizador de ATMs em tempo real e Marketplace para empresas angolanas.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

@@ -21,19 +21,19 @@ interface PublishProductProps {
 export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, branches = [], onBack, onSave, initialData, overrideOwnerId, overrideCompanyName }) => {
     const [title, setTitle] = useState('');
     const [price, setPrice] = useState('');
-    const [category, setCategory] = useState<'Produto' | 'Serviço'>('Produto');
+    const [category, setCategory] = useState<'Produto' | 'Servico'>('Produto');
     const [description, setDescription] = useState('');
     const [image, setImage] = useState('');
     const [gallery, setGallery] = useState<string[]>([]);
     const [isPromoted, setIsPromoted] = useState(false);
-    
+
     // Branch Selection State
     // Default to overrideOwnerId if present (Branch Mode), otherwise default to HQ (empty string or user.id)
     const [selectedBranchId, setSelectedBranchId] = useState<string>(overrideOwnerId || '');
 
     // Processing State
     const [isProcessingImage, setIsProcessingImage] = useState(false);
-    
+
     // Toast State
     const [toast, setToast] = useState<{ show: boolean; message: string; type: ToastType }>({
         show: false,
@@ -50,19 +50,19 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
     // Limit Calculations
     const userPlanType = user.plan || PlanType.BASIC;
     const planDetails = PLANS.find(p => p.type === userPlanType) || PLANS[0];
-    
+
     // 1. Calculate Account-Wide Usage (HQ + All Branches)
     // Limits apply to the Account Holder (User), regardless of which entity publishes.
     const accountIds = [user.id, ...branches.map(b => b.id)];
     const accountNames = [user.name, ...branches.map(b => b.name)];
-    
+
     // Robust filtering to catch all products owned by user or any of their branches
     const allAccountProducts = products.filter(p => {
         // Product owned by User OR any branch owned by User
         const isOwnerMatch = accountIds.includes(p.ownerId || '');
         // Fallback: Legacy check by company name
         const isNameMatch = accountNames.includes(p.companyName);
-        
+
         return isOwnerMatch || isNameMatch;
     });
 
@@ -86,7 +86,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
             setImage(initialData.image);
             setGallery(initialData.gallery || []);
             setIsPromoted(initialData.isPromoted || false);
-            
+
             // Set selected branch based on existing data
             if (initialData.ownerId && initialData.ownerId !== user.id) {
                 // Check if it belongs to one of our branches
@@ -147,7 +147,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
     const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         // Remove everything that is not a digit
         let value = e.target.value.replace(/\D/g, '');
-        
+
         if (value === '') {
             setPrice('');
             return;
@@ -155,7 +155,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
 
         // Parse as integer and divide by 100 to get decimals
         const numberValue = parseInt(value, 10) / 100;
-        
+
         // Format to "pt-BR" style (dots for thousands, comma for decimal)
         const formatted = numberValue.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
@@ -178,16 +178,16 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
 
         // 2. Check Global Highlight Limits (If promoting)
         if (isPromoted && (!initialData || !initialData.isPromoted)) {
-             if (maxHighlights !== -1 && currentHighlights >= maxHighlights) {
-                 showToast(`Limite global de ${maxHighlights} destaques atingido.`, 'error');
-                 return;
-             }
+            if (maxHighlights !== -1 && currentHighlights >= maxHighlights) {
+                showToast(`Limite global de ${maxHighlights} destaques atingido.`, 'error');
+                return;
+            }
         }
-        
+
         // Resolve final owner details
         const finalOwnerId = selectedBranchId || user.id;
-        const finalCompanyName = selectedBranchId 
-            ? branches.find(b => b.id === selectedBranchId)?.name || user.name 
+        const finalCompanyName = selectedBranchId
+            ? branches.find(b => b.id === selectedBranchId)?.name || user.name
             : user.name;
 
         // Convert formatted string "1.234,56" back to number 1234.56
@@ -195,7 +195,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
         const finalPriceValue = parseFloat(rawPriceString) || 0;
 
         const newProduct: Product = {
-            id: initialData ? initialData.id : Date.now().toString(),
+            id: initialData ? initialData.id : crypto.randomUUID(),
             title,
             price: finalPriceValue,
             image: image || 'https://picsum.photos/400/400', // Fallback image if nothing uploaded
@@ -206,16 +206,11 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
             ownerId: finalOwnerId,
             description,
             // Link to main bank ID if applicable, regardless of branch
-            bankId: user.isBank ? (user.id) : undefined 
+            bankId: user.isBank ? (user.id) : undefined
         };
 
-        // Notify and save
-        showToast(initialData ? 'Produto atualizado com sucesso!' : 'Produto publicado com sucesso!', 'success');
-        
-        // Delay closing slightly to show the toast, but ensure good UX
-        setTimeout(() => {
-            onSave(newProduct);
-        }, 800);
+        // Save (App will handle success/errors and close the modal accordingly)
+        onSave(newProduct);
     };
 
     return (
@@ -237,7 +232,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                
+
                 {/* Branch Selection Section - Only show if user has branches */}
                 {branches.length > 0 && (
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800">
@@ -246,7 +241,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                             Local de Publicação
                         </label>
                         <div className="relative">
-                            <select 
+                            <select
                                 value={selectedBranchId}
                                 onChange={(e) => setSelectedBranchId(e.target.value)}
                                 disabled={!!overrideOwnerId} // Disable if explicitly forced by parent
@@ -266,8 +261,8 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                             )}
                         </div>
                         <p className="text-[10px] text-indigo-700 dark:text-indigo-400 mt-2 px-1">
-                            {selectedBranchId 
-                                ? "O produto será exibido como pertencente a esta agência. O uso contará para o limite global da conta." 
+                            {selectedBranchId
+                                ? "O produto será exibido como pertencente a esta agência. O uso contará para o limite global da conta."
                                 : "O produto será vinculado à conta principal da empresa."}
                         </p>
                     </div>
@@ -281,12 +276,12 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                     </label>
                     <div className="w-full h-48 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all cursor-pointer relative overflow-hidden group">
                         {isProcessingImage && !gallery.length && !image ? (
-                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 z-20">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 z-20">
                                 <Loader2 size={32} className="animate-spin text-indigo-600" />
                                 <span className="text-xs font-bold text-gray-600 dark:text-gray-400">Otimizando...</span>
                             </div>
                         ) : null}
-                        
+
                         {image ? (
                             <>
                                 <img src={image} alt="Preview" className="w-full h-full object-cover" />
@@ -302,8 +297,8 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                                 <span className="text-sm font-medium">Toque para adicionar capa</span>
                             </>
                         )}
-                        <input 
-                            type="file" 
+                        <input
+                            type="file"
                             accept="image/*"
                             className="absolute inset-0 opacity-0 cursor-pointer z-20"
                             onChange={handleCoverUpload}
@@ -319,10 +314,10 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                         Galeria de Fotos
                     </label>
                     <p className="text-xs text-gray-400 mb-3">Adicione fotos extras para mostrar detalhes.</p>
-                    
+
                     <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar items-center">
                         {/* Add Button */}
-                        <input 
+                        <input
                             type="file"
                             accept="image/*"
                             multiple
@@ -330,7 +325,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                             ref={galleryInputRef}
                             onChange={handleGalleryUpload}
                         />
-                        <button 
+                        <button
                             type="button"
                             onClick={() => !isProcessingImage && galleryInputRef.current?.click()}
                             disabled={isProcessingImage}
@@ -344,7 +339,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                         {gallery.map((img, idx) => (
                             <div key={idx} className="w-24 h-24 shrink-0 rounded-xl overflow-hidden relative group border border-gray-200 dark:border-gray-700">
                                 <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => handleRemoveGalleryImage(idx)}
                                     className="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
@@ -360,8 +355,8 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Título do Anúncio</label>
                     <div className="flex items-center px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
                         <Type size={20} className="text-gray-400 mr-3" />
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             required
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
@@ -376,7 +371,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preço (Kz)</label>
                         <div className="flex items-center px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-indigo-500 transition-all">
                             <DollarSign size={20} className="text-gray-400 mr-2" />
-                            <input 
+                            <input
                                 type="text"
                                 inputMode="numeric"
                                 required
@@ -390,13 +385,13 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categoria</label>
                         <div className="relative">
-                            <select 
+                            <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value as any)}
                                 className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 focus:border-indigo-500 outline-none appearance-none text-gray-900 dark:text-white"
                             >
                                 <option value="Produto">Produto</option>
-                                <option value="Serviço">Serviço</option>
+                                <option value="Servico">Serviço</option>
                             </select>
                             <Tag size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>
@@ -404,7 +399,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                 </div>
 
                 {/* Promotion Toggle */}
-                <div 
+                <div
                     onClick={() => canPromote && setIsPromoted(!isPromoted)}
                     className={`p-4 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${isPromoted ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : canPromote ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-yellow-200' : 'border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 opacity-60 cursor-not-allowed'}`}
                 >
@@ -415,8 +410,8 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                         <div>
                             <p className={`font-bold ${isPromoted ? 'text-yellow-900 dark:text-yellow-400' : 'text-gray-700 dark:text-gray-300'}`}>Destacar Produto</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {canPromote 
-                                    ? `Aumente a visibilidade (${currentHighlights}/${maxHighlights === -1 ? '∞' : maxHighlights} usados)` 
+                                {canPromote
+                                    ? `Aumente a visibilidade (${currentHighlights}/${maxHighlights === -1 ? '∞' : maxHighlights} usados)`
                                     : `Limite de destaques atingido (${maxHighlights})`}
                             </p>
                         </div>
@@ -430,7 +425,7 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Descrição</label>
                     <div className="flex items-start px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 focus-within:border-indigo-500 transition-all">
                         <FileText size={20} className="text-gray-400 mr-3 mt-1" />
-                        <textarea 
+                        <textarea
                             rows={4}
                             required
                             value={description}
@@ -447,12 +442,12 @@ export const PublishProduct: React.FC<PublishProductProps> = ({ user, products, 
                     </Button>
                 </div>
             </form>
-            
-            <Toast 
-                isVisible={toast.show} 
-                message={toast.message} 
-                type={toast.type} 
-                onClose={() => setToast(prev => ({ ...prev, show: false }))} 
+
+            <Toast
+                isVisible={toast.show}
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast(prev => ({ ...prev, show: false }))}
             />
         </div>
     );
