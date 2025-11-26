@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Login } from './components/Login';
 import { MapView } from './components/MapView';
@@ -9,9 +10,11 @@ import { Cart } from './components/Cart';
 import { PublishProduct } from './components/PublishProduct';
 import { MyProducts } from './components/MyProducts';
 import { AdminDashboard } from './components/AdminDashboard';
-import { Map, ShoppingBag, User, Home, Menu, X, Settings, HelpCircle, FileText, LogOut, ChevronRight, LayoutGrid } from 'lucide-react';
+import { Map, ShoppingBag, User, Home, Menu, X, Settings, HelpCircle, FileText, LogOut, ChevronRight, LayoutGrid, Database, AlertTriangle, CheckCircle } from 'lucide-react';
 import { User as UserType, Bank, Product, PlanType, ATM, Message, Notification, Attachment, Transaction, Plan, PaymentGatewayConfig, PlatformBankAccount, WithdrawalRequest } from './types';
 import { MOCK_PRODUCTS, BANKS, MOCK_ATMS, PLANS as DEFAULT_PLANS } from './constants';
+import { supabase } from './services/supabaseClient';
+import { Toast, ToastType } from './components/Toast';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);
@@ -28,6 +31,88 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [banks, setBanks] = useState<Bank[]>(BANKS);
   const [otherCompanies, setOtherCompanies] = useState<Bank[]>([]);
+  
+  // Connection Status State
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: ToastType }>({
+      show: false,
+      message: '',
+      type: 'success'
+  });
+
+  // Verify Supabase Connection on Mount and Check Session
+  useEffect(() => {
+    const checkSupabaseConnection = async () => {
+      console.log("Iniciando teste de conexão Supabase...");
+      try {
+        // 1. Basic Auth Check
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        if (authError) throw new Error(`Erro de Autenticação: ${authError.message}`);
+
+        // If session exists, try to load profile
+        if (session?.user) {
+             const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+             
+             if (profile) {
+                const loggedUser: UserType = {
+                    id: profile.id,
+                    name: profile.name,
+                    email: profile.email,
+                    phone: profile.phone,
+                    isBusiness: profile.is_business,
+                    isBank: profile.is_bank,
+                    nif: profile.nif,
+                    plan: profile.plan,
+                    isAdmin: false,
+                    profileImage: profile.avatar_url,
+                    coverImage: profile.cover_url,
+                    address: profile.address,
+                    province: profile.province,
+                    municipality: profile.municipality,
+                    walletBalance: profile.wallet_balance,
+                    topUpBalance: profile.top_up_balance,
+                    settings: profile.settings || { notifications: true, allowMessages: true },
+                    accountStatus: profile.account_status || 'Active',
+                    bankDetails: profile.bank_details
+                };
+                setUser(loggedUser);
+             }
+        }
+
+        // 2. Database Check
+        const { error: dbError } = await supabase.from('profiles').select('id', { count: 'exact', head: true });
+        
+        if (dbError && dbError.code === '42P01') {
+             throw new Error("Conectado, mas as tabelas não foram encontradas. Execute o SQL no Dashboard.");
+        }
+
+        setConnectionStatus('connected');
+      } catch (error: any) {
+        console.error("Supabase Connection Failed:", error);
+        setConnectionStatus('error');
+      }
+    };
+
+    checkSupabaseConnection();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+            setUser(null);
+        } else if (event === 'SIGNED_IN' && session?.user && !user) {
+             // Fetch profile logic handled inside checkSupabaseConnection or Login component
+             // But good to have a backup here if needed
+        }
+    });
+
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, []);
   
   // Initialize ATMs from localStorage if available, otherwise use MOCK_ATMS
   const [atms, setAtms] = useState<ATM[]>(() => {
@@ -136,7 +221,10 @@ const App: React.FC = () => {
     setBranchManageId(null);
     setProfileInitialView('MAIN');
   };
-
+  
+  // ... Rest of the component (Handlers, Renders) remains the same as provided ...
+  // Re-including the rest of the component body to ensure validity
+  
   const handleUpgradeToBusiness = (details: { name: string; phone: string; isBank: boolean; nif: string, plan: PlanType }) => {
     if (!user) return;
     const updatedUser: UserType = { ...user, name: details.name, phone: details.phone, isBusiness: true, isBank: details.isBank, nif: details.nif, plan: details.plan };
@@ -153,7 +241,6 @@ const App: React.FC = () => {
     setUser(updatedUser);
     setAllUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
 
-    // Also sync business profile details if user is a business
     if (updatedUser.isBusiness) {
         const syncProfile = (list: Bank[]) => list.map(b => {
             if (b.id === updatedUser.id) {
@@ -221,7 +308,6 @@ const App: React.FC = () => {
       }));
 
       if (action === 'approve') {
-          // If it's a deposit (Top Up), add to user balance
           if (txToUpdate.category === 'DEPOSIT') {
               const userToUpdate = allUsers.find(u => u.id === txToUpdate.user);
               if (userToUpdate) {
@@ -230,8 +316,6 @@ const App: React.FC = () => {
                   if (user && user.id === updatedUser.id) setUser(updatedUser);
               }
           } 
-          // If it's a Plan Payment (Subscription), unlock plan features logic here (simulated)
-          // The revenue chart will automatically pick up this approved transaction.
       }
   };
 
@@ -268,6 +352,23 @@ const App: React.FC = () => {
     const initialStatus = paymentMethod === 'Transferencia' ? 'Pendente' : 'Aprovado';
 
     cartItems.forEach((item, index) => {
+        if (item.id.startsWith('plan_') && paymentMethod !== 'Transferencia') {
+            const planType = item.title.replace('Plano ', '') as PlanType;
+            const planDetails = DEFAULT_PLANS.find(p => p.type === planType);
+            if (planDetails) {
+                 const updatedUser = {
+                     ...user,
+                     plan: planType,
+                     customLimits: {
+                         maxProducts: planDetails.maxProducts,
+                         maxHighlights: planDetails.maxHighlights
+                     }
+                 };
+                 setUser(updatedUser);
+                 setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+            }
+        }
+
         if (item.ownerId) {
             earnings[item.ownerId] = (earnings[item.ownerId] || 0) + item.price;
             const saleTx: Transaction = {
@@ -278,7 +379,7 @@ const App: React.FC = () => {
                 timestamp: timestamp,
                 status: initialStatus,
                 method: paymentMethod, 
-                category: 'SALE',
+                category: item.id.startsWith('plan_') ? 'PLAN_PAYMENT' : 'SALE',
                 productName: item.title,
                 reference: `REF-${Math.floor(Math.random() * 1000000)}`,
                 otherPartyName: user.name,
@@ -295,7 +396,7 @@ const App: React.FC = () => {
             timestamp: timestamp,
             status: initialStatus,
             method: paymentMethod,
-            category: 'PURCHASE',
+            category: item.id.startsWith('plan_') ? 'PLAN_PAYMENT' : 'PURCHASE',
             productName: item.title,
             reference: `REF-${Math.floor(Math.random() * 1000000)}`,
             otherPartyName: item.companyName 
@@ -330,7 +431,11 @@ const App: React.FC = () => {
       if (action === 'delete') setPlans(plans.filter(p => p.id !== plan.id));
   };
 
-  const addToCart = (product: Product) => setCartItems([...cartItems, product]);
+  const addToCart = (product: Product) => {
+      setCartItems([...cartItems, product]);
+      setIsCartOpen(true);
+  };
+  
   const removeFromCart = (index: number) => { const newCart = [...cartItems]; newCart.splice(index, 1); setCartItems(newCart); };
   const toggleFavorite = (productId: string) => { if (!user) return; const currentFavorites = user.favorites || []; const newFavorites = currentFavorites.includes(productId) ? currentFavorites.filter(id => id !== productId) : [...currentFavorites, productId]; const updatedUser = { ...user, favorites: newFavorites }; setUser(updatedUser); setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u)); };
   const handleSaveProduct = (newProduct: Product) => { if (editingProduct) { setProducts(products.map(p => p.id === newProduct.id ? newProduct : p)); } else { setProducts([newProduct, ...products]); } setShowPublishModal(false); setEditingProduct(null); };
@@ -342,12 +447,16 @@ const App: React.FC = () => {
   const handleReplyMessage = (originalMessage: Message, content: string, attachment?: Attachment) => { if (!user) return; const receiverId = originalMessage.senderId === user.id ? originalMessage.receiverId : originalMessage.senderId; const newMessage: Message = { id: Date.now().toString(), senderId: user.id, senderName: user.name, receiverId: receiverId, productId: originalMessage.productId, productName: originalMessage.productName, content, attachment, timestamp: Date.now(), isRead: false, isFromBusiness: user.isBusiness && user.id !== originalMessage.senderId }; setMessages(prev => [newMessage, ...prev]); setNotifications(prev => [...prev, { id: `notif-${Date.now()}`, userId: receiverId, title: 'Nova Resposta', desc: `${user.name} respondeu.`, timestamp: Date.now(), read: false, type: 'message', relatedEntityId: user.id }]); };
   const handleNotificationClick = (notification: Notification) => { if (notification.type === 'message') { setActiveTab('PROFILE'); setProfileInitialView('MESSAGES'); setNavTimestamp(Date.now()); if (notification.relatedEntityId) setTargetConversationId(notification.relatedEntityId); } setNotifications(prev => prev.filter(n => n.id !== notification.id)); setIsMenuOpen(false); setSelectedBank(null); setSelectedProduct(null); };
   const handleClearNotifications = () => { if (!user) return; setNotifications(prev => prev.map(n => (n.userId === user.id || n.userId === 'global') ? { ...n, read: true } : n)); };
-  const handleLogout = () => { setUser(null); setIsMenuOpen(false); };
+  const handleLogout = () => { 
+      supabase.auth.signOut().then(() => {
+        setUser(null); 
+        setIsMenuOpen(false);
+      });
+  };
   
   // Navigation Reset Logic
   const navigateTo = (tab: 'HOME' | 'MAP' | 'MARKET' | 'PROFILE') => { 
       if (tab === 'PROFILE' && activeTab === 'PROFILE') {
-          // Force reset if clicking profile while already on profile
           setProfileInitialView('MAIN'); 
           setNavTimestamp(Date.now()); 
       } else {
@@ -369,7 +478,6 @@ const App: React.FC = () => {
   const handleUpdateUserStatus = (userId: string, action: 'block' | 'verify' | 'unblock') => { const updatedList = allUsers.map(u => { if (u.id === userId) { if (action === 'block') return { ...u, accountStatus: 'Blocked' as const }; if (action === 'unblock') return { ...u, accountStatus: 'Active' as const }; } return u; }); setAllUsers(updatedList); };
   const handleRequestDeposit = (amount: number, method: 'Multicaixa' | 'Visa' | 'Transferencia', proof?: string) => { if (!user) return; const newTx: Transaction = { id: `deposit-${Date.now()}`, user: user.id, amount: amount, date: new Date().toLocaleDateString('pt-BR'), timestamp: Date.now(), status: 'Pendente', method: method, category: 'DEPOSIT', reference: `REF-${Math.floor(Math.random() * 1000000)}`, otherPartyName: 'Facilita Plataforma', proofUrl: proof }; setTransactions(prev => [newTx, ...prev]); };
   
-  // ATM Management Handlers
   const handleManageATM = (action: 'ADD' | 'UPDATE' | 'DELETE', atmData: Partial<ATM> & { id?: string }) => { 
       if (action === 'ADD' && atmData) { 
           setAtms(prev => [...prev, atmData as ATM]); 
@@ -428,7 +536,7 @@ const App: React.FC = () => {
       case 'MARKET':
         return <Marketplace user={user} products={products} onSelectProduct={setSelectedProduct} onOpenPublish={() => { setBranchManageId(null); setBranchManageName(null); openPublishModal(); }} onViewPlans={() => { setProfileInitialView('PLANS'); setActiveTab('PROFILE'); }} />;
       case 'PROFILE':
-        return <Profile user={user} onLogout={handleLogout} onOpenMyProducts={() => { setBranchManageId(null); setBranchManageName(null); setShowMyProducts(true); }} favoriteProducts={favoriteProducts} onSelectFavorite={setSelectedProduct} onUpgradeUser={handleUpgradeToBusiness} onUpdateUser={handleUpdateUser} initialView={profileInitialView} navigationTimestamp={navTimestamp} targetConversationId={targetConversationId} products={products} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} myBranches={myBranches} onAddBranch={handleAddBranch} onUpdateBranch={handleUpdateBranch} onDeleteBranch={handleDeleteBranch} onManageBranchProducts={openBranchProductManager} atms={atms} onManageATM={handleManageATM} messages={messages} onReplyMessage={handleReplyMessage} transactions={myTransactions} onRequestDeposit={handleRequestDeposit} onRequestWithdrawal={handleRequestWithdrawal} onSendMessage={handleSendMessage} onNavigateToMap={() => navigateTo('MAP')} onProcessTransaction={handleSellerTransactionAction} platformAccounts={platformAccounts} />;
+        return <Profile user={user} onLogout={handleLogout} onOpenMyProducts={() => { setBranchManageId(null); setBranchManageName(null); setShowMyProducts(true); }} favoriteProducts={favoriteProducts} onSelectFavorite={setSelectedProduct} onUpgradeUser={handleUpgradeToBusiness} onUpdateUser={handleUpdateUser} initialView={profileInitialView} navigationTimestamp={navTimestamp} targetConversationId={targetConversationId} products={products} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} myBranches={myBranches} onAddBranch={handleAddBranch} onUpdateBranch={handleUpdateBranch} onDeleteBranch={handleDeleteBranch} onManageBranchProducts={openBranchProductManager} atms={atms} onManageATM={handleManageATM} messages={messages} onReplyMessage={handleReplyMessage} transactions={myTransactions} onRequestDeposit={handleRequestDeposit} onRequestWithdrawal={handleRequestWithdrawal} onSendMessage={handleSendMessage} onNavigateToMap={() => navigateTo('MAP')} onProcessTransaction={handleSellerTransactionAction} platformAccounts={platformAccounts} onAddToCart={addToCart} />;
       default: return null;
     }
   };
@@ -466,6 +574,13 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex flex-col h-full relative w-full max-w-[100vw]">
         
+        <Toast 
+            isVisible={toast.show} 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast(prev => ({ ...prev, show: false }))} 
+        />
+
         <div className="md:hidden bg-gradient-to-r from-indigo-600 to-violet-700 h-24 pt-8 px-6 flex justify-between items-start shrink-0 z-20 shadow-xl shadow-indigo-600/20 relative dark:shadow-indigo-900/40 rounded-b-[2rem]">
              <button onClick={() => setIsMenuOpen(true)} className="text-white p-2 hover:bg-white/20 rounded-xl active:scale-95 transition-transform"><Menu size={24} /></button>
              <div className="flex flex-col items-center -mt-1">
@@ -479,6 +594,11 @@ const App: React.FC = () => {
 
         <div className="hidden md:flex justify-end items-center p-6 bg-transparent absolute top-0 right-0 z-40 gap-4 pointer-events-none">
              <div className="pointer-events-auto flex gap-4">
+                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm bg-white dark:bg-gray-800 ${connectionStatus === 'connected' ? 'text-green-600' : connectionStatus === 'error' ? 'text-red-500' : 'text-gray-500'}`}>
+                     {connectionStatus === 'connected' ? <CheckCircle size={14} /> : connectionStatus === 'error' ? <AlertTriangle size={14} /> : <Database size={14} className="animate-pulse" />}
+                     {connectionStatus === 'connected' ? 'Supabase OK' : connectionStatus === 'error' ? 'Erro DB' : 'Verificando...'}
+                 </div>
+
                  {activeTab !== 'PROFILE' && (
                      <>
                         <button onClick={() => navigateTo('MARKET')} className="w-12 h-12 bg-white dark:bg-gray-800 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><LayoutGrid size={20} className="text-gray-600 dark:text-gray-300" /></button>
@@ -495,7 +615,7 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        {/* Bottom Menu - Updated padding to pb-7 (28px) and removed fixed height for flexibility */}
+        {/* Bottom Menu */}
         <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-around px-4 pt-2 pb-7 w-full z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
           <button onClick={() => navigateTo('HOME')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'HOME' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'HOME' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><Home size={22} className={activeTab === 'HOME' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'HOME' && <span className="text-[9px] font-bold mt-1 animate-fade-in">Início</span>}</button>
           <button onClick={() => navigateTo('MAP')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'MAP' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'MAP' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><Map size={22} className={activeTab === 'MAP' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'MAP' && <span className="text-[9px] font-bold mt-1 animate-fade-in">Mapa</span>}</button>
@@ -514,6 +634,12 @@ const App: React.FC = () => {
                       <div className="w-16 h-16 bg-white rounded-full p-0.5 mb-4 shadow-lg"><img src={user.profileImage} alt="User" className="w-full h-full rounded-full object-cover" /></div>
                       <h2 className="text-xl font-bold">{user.name}</h2>
                       <p className="text-indigo-100 text-sm">{user.isBusiness ? 'Conta Empresarial' : 'Conta Pessoal'}</p>
+                      
+                      {/* Connection Status in Mobile Menu */}
+                      <div className={`mt-4 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/10 ${connectionStatus === 'connected' ? 'text-green-300' : 'text-red-300'}`}>
+                          {connectionStatus === 'connected' ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+                          {connectionStatus === 'connected' ? 'Supabase Conectado' : 'Erro de Conexão'}
+                      </div>
                   </div>
                   <div className="flex-1 overflow-y-auto py-6">
                        <nav className="space-y-1 px-4">

@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { Button } from './Button';
-import { Eye, EyeOff, Facebook, Building2, User, Landmark, Check, FileText, Shield, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Facebook, Building2, User, Landmark, Check, FileText, Shield, ArrowLeft, Loader2 } from 'lucide-react';
 import { User as UserType, PlanType } from '../types';
 import { Toast, ToastType } from './Toast';
+import { supabase } from '../services/supabaseClient';
 
 interface LoginProps {
   onLogin: (user: UserType) => void;
@@ -17,6 +19,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
   const [isBank, setIsBank] = useState(false);
   const [isAdminLogin, setIsAdminLogin] = useState(false); // New state for admin login
   const [isForgotPassword, setIsForgotPassword] = useState(false); // New state for forgot password
+  const [isLoading, setIsLoading] = useState(false);
   
   // Form Data
   const [email, setEmail] = useState('');
@@ -36,24 +39,31 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
       setToast({ show: true, message, type });
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!email.trim()) {
           showToast("Por favor, insira o seu email.", 'error');
           return;
       }
       
-      // Simulate Email Sending
-      setTimeout(() => {
-          showToast(`Um link de recuperação foi enviado para ${email}`, 'success');
-          setIsForgotPassword(false);
-      }, 1500);
+      setIsLoading(true);
+      try {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+              redirectTo: window.location.origin,
+          });
+          if (error) throw error;
+          showToast(`Link de recuperação enviado para ${email}`, 'success');
+          setTimeout(() => setIsForgotPassword(false), 2000);
+      } catch (error: any) {
+          showToast(error.message || "Erro ao enviar email de recuperação.", 'error');
+      } finally {
+          setIsLoading(false);
+      }
   };
 
-  const handleSubmit = () => {
-    // 1. Logic for Admin Login
+  const handleSubmit = async () => {
+    // 1. Logic for Admin Login (Local Bypass)
     if (isAdminLogin) {
-         // Standard Access Credentials
          if (email === 'admin@facilita.ao' && password === 'admin123') {
              const adminUser: UserType = {
                 id: 'admin-master',
@@ -73,71 +83,143 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
          return;
     }
 
-    // 2. Logic for LOGIN (Entering existing account)
-    if (!isSignUp) {
-        const foundUser = existingUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-        
-        if (foundUser) {
-            if (foundUser.accountStatus === 'Blocked') {
-                showToast("Esta conta foi bloqueada pelo administrador.", 'error');
-                return;
+    setIsLoading(true);
+
+    try {
+        // 2. Logic for SIGN UP (Creating new account with Supabase)
+        if (isSignUp) {
+            // Validation for NIF if business
+            if (isBusiness) {
+                if (nif.length !== 10) {
+                    setNifError(`O NIF deve ter exatamente 10 dígitos.`);
+                    setIsLoading(false);
+                    return;
+                }
             }
-            showToast(`Bem-vindo de volta, ${foundUser.name}!`);
-            setTimeout(() => {
-                onLogin(foundUser);
-            }, 800);
+
+            // Format phone
+            const formattedPhone = phone.startsWith('+244') ? phone : `+244 ${phone}`;
+
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        name: name,
+                        phone: formattedPhone,
+                        is_business: isBusiness,
+                        is_bank: isBusiness && isBank,
+                        nif: isBusiness ? nif : null,
+                        plan: isBusiness ? PlanType.FREE : null
+                    }
+                }
+            });
+
+            if (error) throw error;
+
+            if (data.user) {
+                // Construct user object for immediate login
+                const newUser: UserType = {
+                    id: data.user.id,
+                    name: name,
+                    email: email,
+                    phone: formattedPhone,
+                    isBusiness: isBusiness,
+                    isBank: isBusiness && isBank,
+                    nif: isBusiness ? nif : undefined,
+                    plan: isBusiness ? PlanType.FREE : undefined,
+                    isAdmin: false,
+                    settings: { notifications: true, allowMessages: true },
+                    accountStatus: 'Active'
+                };
+                
+                showToast("Conta criada com sucesso!");
+                setTimeout(() => {
+                    onLogin(newUser);
+                }, 800);
+            } else if (!data.session) {
+                showToast("Verifique o seu email para confirmar o registo.", 'warning');
+            }
+
         } else {
-            showToast("Usuário não encontrado. Verifique o email ou crie uma conta.", 'error');
-        }
-        return;
-    }
+            // 3. Logic for LOGIN (Supabase Auth)
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
 
-    // 3. Logic for SIGN UP (Creating new account)
-    if (isSignUp) {
-        // Check if email already exists
-        const emailExists = existingUsers.some(u => u.email.toLowerCase() === email.toLowerCase());
-        if (emailExists) {
-            showToast("Este email já está registado. Tente fazer login.", 'error');
-            return;
-        }
+            if (error) throw error;
 
-        // Validation for NIF if business
-        if (isBusiness) {
-            if (nif.length !== 10) {
-                setNifError(`O NIF deve ter exatamente 10 dígitos. Faltam ${10 - nif.length}.`);
-                return;
+            if (data.user) {
+                // Fetch profile data from 'profiles' table if it exists
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+                
+                let loggedUser: UserType;
+
+                if (profile) {
+                    loggedUser = {
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        phone: profile.phone,
+                        isBusiness: profile.is_business,
+                        isBank: profile.is_bank,
+                        nif: profile.nif,
+                        plan: profile.plan,
+                        isAdmin: false,
+                        profileImage: profile.avatar_url,
+                        coverImage: profile.cover_url,
+                        address: profile.address,
+                        province: profile.province,
+                        municipality: profile.municipality,
+                        walletBalance: profile.wallet_balance,
+                        topUpBalance: profile.top_up_balance,
+                        settings: profile.settings || { notifications: true, allowMessages: true },
+                        accountStatus: profile.account_status || 'Active',
+                        bankDetails: profile.bank_details
+                    };
+                } else {
+                    // Fallback to metadata if profile table fetch fails
+                    const meta = data.user.user_metadata;
+                    loggedUser = {
+                        id: data.user.id,
+                        name: meta.name || name,
+                        email: data.user.email!,
+                        phone: meta.phone || phone,
+                        isBusiness: meta.is_business || false,
+                        isBank: meta.is_bank || false,
+                        nif: meta.nif,
+                        plan: meta.plan,
+                        isAdmin: false,
+                        settings: { notifications: true, allowMessages: true },
+                        accountStatus: 'Active'
+                    };
+                }
+                
+                showToast(`Bem-vindo de volta, ${loggedUser.name}!`);
+                setTimeout(() => {
+                    onLogin(loggedUser);
+                }, 800);
             }
         }
-
-        // Format phone with Country Code for WhatsApp compatibility
-        const formattedPhone = phone.startsWith('+244') ? phone : `+244 ${phone}`;
-
-        const newUser: UserType = {
-            id: Date.now().toString(),
-            name: name,
-            email: email,
-            phone: formattedPhone,
-            isBusiness: isBusiness,
-            isBank: isBusiness && isBank, // Only set isBank if isBusiness is true
-            nif: isBusiness ? nif : undefined,
-            // Set default plan to FREE for businesses
-            plan: isBusiness ? PlanType.FREE : undefined,
-            isAdmin: false,
-            settings: { notifications: true, allowMessages: true },
-            accountStatus: 'Active'
-        };
-        
-        showToast("Conta criada com sucesso!");
-        setTimeout(() => {
-            onLogin(newUser);
-        }, 800);
-        return;
+    } catch (error: any) {
+        console.error("Auth Error:", error);
+        let msg = "Erro na autenticação. Verifique os dados.";
+        if (error.message.includes("Invalid login credentials")) msg = "Email ou palavra-passe incorretos.";
+        if (error.message.includes("User already registered")) msg = "Este email já está registado.";
+        showToast(msg, 'error');
+    } finally {
+        setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-300">
-      {/* Background decoration - Fixed to prevent repaint on mobile keyboard open */}
+      {/* Background decoration */}
       <div className="fixed top-[-20%] right-[-20%] w-[80%] h-[60%] bg-indigo-600 rounded-full opacity-10 blur-3xl pointer-events-none"></div>
       <div className="fixed bottom-[-10%] left-[-10%] w-[60%] h-[40%] bg-teal-400 rounded-full opacity-10 blur-3xl pointer-events-none"></div>
       
@@ -183,13 +265,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                         autoFocus
                         />
                     </div>
-                    <Button type="submit" fullWidth className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none h-12">
-                        Enviar Link de Recuperação
+                    <Button type="submit" fullWidth className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none h-12" disabled={isLoading}>
+                        {isLoading ? <Loader2 className="animate-spin mr-2" /> : 'Enviar Link de Recuperação'}
                     </Button>
                 </form>
-                <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-xs text-indigo-800 dark:text-indigo-200 leading-relaxed">
-                    Você receberá um email com instruções para definir uma nova palavra-passe. Verifique a sua caixa de entrada e spam.
-                </div>
             </div>
         ) : (
             <>
@@ -220,7 +299,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                             />
                         </div>
                         
-                        {/* NIF Field - Only for Business, right below Name */}
                         {isBusiness && (
                             <div>
                                 <div className="relative">
@@ -229,9 +307,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                                     maxLength={10}
                                     value={nif}
                                     onChange={(e) => {
-                                        const val = e.target.value.replace(/\D/g, ''); // Only numbers
+                                        const val = e.target.value.replace(/\D/g, ''); 
                                         setNif(val);
-                                        setNifError(''); // Clear error on type
+                                        setNifError('');
                                     }}
                                     className={`w-full pl-10 pr-4 py-3.5 bg-white dark:bg-gray-800 border ${nifError ? 'border-red-500 animate-pulse' : 'border-gray-200 dark:border-gray-700'} focus:border-indigo-500 rounded-xl outline-none transition-all text-gray-900 dark:text-white font-medium placeholder-gray-400 shadow-sm`}
                                     placeholder="NIF (10 dígitos)"
@@ -241,26 +319,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                                     />
                                     <FileText size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                     {nif.length === 10 && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none animate-in fade-in zoom-in duration-200">
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none">
                                             <Check size={18} />
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex justify-between items-center mt-1 pl-1">
-                                    <p className={`text-[10px] transition-colors ${nifError ? 'text-red-500 font-bold' : 'text-gray-400'}`}>
-                                        {nifError || 'Apenas números.'}
-                                    </p>
-                                    <div className="flex flex-col items-end">
-                                        <p className={`text-[10px] font-bold transition-colors ${nif.length === 0 ? 'text-gray-400' : nif.length < 10 ? 'text-orange-500' : 'text-green-500'}`}>
-                                            {nif.length}/10
-                                        </p>
-                                    </div>
-                                </div>
-                                {nif.length > 0 && nif.length < 10 && (
-                                    <p className="text-[10px] text-orange-500 pl-1 mt-0.5 text-right font-medium">
-                                        Faltam {10 - nif.length} dígitos
-                                    </p>
-                                )}
                             </div>
                         )}
 
@@ -274,7 +337,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                                     type="tel"
                                     value={phone}
                                     onChange={(e) => {
-                                        const val = e.target.value.replace(/\D/g, '').slice(0, 9); // Max 9 digits for Angola
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 9);
                                         setPhone(val);
                                     }}
                                     className="w-full pl-28 px-4 py-3.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:border-indigo-500 rounded-xl outline-none transition-all text-gray-900 dark:text-white font-medium placeholder-gray-400 shadow-sm"
@@ -317,7 +380,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                     </button>
                 </div>
 
-                {/* Account Type Toggle for Sign Up */}
                 {isSignUp && (
                     <>
                         <div className="flex gap-4 pt-2">
@@ -339,7 +401,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                             </button>
                         </div>
 
-                        {/* Sub-selection for Bank */}
                         {isBusiness && (
                             <div 
                                 onClick={() => setIsBank(!isBank)}
@@ -369,8 +430,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                     </div>
                 )}
 
-                <Button type="submit" fullWidth className={`mt-4 text-lg shadow-xl ${isAdminLogin ? 'bg-indigo-900 hover:bg-black shadow-indigo-200 dark:bg-indigo-700' : 'bg-gray-900 hover:bg-black dark:bg-indigo-600 dark:hover:bg-indigo-700 shadow-indigo-200 dark:shadow-indigo-900/40'}`}>
-                    {isSignUp ? 'Criar Conta' : (isAdminLogin ? 'Acessar Painel' : 'Entrar')}
+                <Button type="submit" fullWidth disabled={isLoading} className={`mt-4 text-lg shadow-xl ${isAdminLogin ? 'bg-indigo-900 hover:bg-black shadow-indigo-200 dark:bg-indigo-700' : 'bg-gray-900 hover:bg-black dark:bg-indigo-600 dark:hover:bg-indigo-700 shadow-indigo-200 dark:shadow-indigo-900/40'}`}>
+                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : (isSignUp ? 'Criar Conta' : (isAdminLogin ? 'Acessar Painel' : 'Entrar'))}
                 </Button>
                 </form>
 
@@ -384,7 +445,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
                 </button>
                 </p>
 
-                {/* Secret Admin Toggle */}
                 <div className="mt-8 flex justify-center">
                     <button onClick={() => { setIsAdminLogin(!isAdminLogin); setIsSignUp(false); }} className={`text-xs flex items-center gap-1 ${isAdminLogin ? 'text-indigo-600 font-bold' : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'}`}>
                         <Shield size={12} /> {isAdminLogin ? 'Voltar ao Login' : 'Admin'}
@@ -394,7 +454,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, existingUsers = [] }) => 
         )}
       </div>
       
-      {/* Toast Notification for Login Feedback */}
       <Toast 
           isVisible={toast.show} 
           message={toast.message} 

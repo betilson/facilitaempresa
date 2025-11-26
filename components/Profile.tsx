@@ -49,6 +49,7 @@ interface ProfileProps {
     onNavigateToMap?: () => void; 
     onProcessTransaction?: (id: string, action: 'approve' | 'reject') => void;
     platformAccounts?: PlatformBankAccount[];
+    onAddToCart?: (product: Product) => void;
 }
 
 const Header = ({ title, onBack }: { title: string; onBack: () => void }) => (
@@ -88,7 +89,7 @@ const FAQItem = ({ question, answer }: { question: string, answer: string }) => 
     );
 };
 
-export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProducts, favoriteProducts = [], onSelectFavorite, onUpgradeUser, onUpdateUser, initialView, navigationTimestamp, targetConversationId, products = [], isDarkMode, onToggleDarkMode, myBranches = [], onAddBranch, onUpdateBranch, onDeleteBranch, onManageBranchProducts, atms = [], onManageATM, messages = [], onReplyMessage, transactions = [], onRequestDeposit, onRequestWithdrawal, onSendMessage, onNavigateToMap, onProcessTransaction, platformAccounts = [] }) => {
+export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProducts, favoriteProducts = [], onSelectFavorite, onUpgradeUser, onUpdateUser, initialView, navigationTimestamp, targetConversationId, products = [], isDarkMode, onToggleDarkMode, myBranches = [], onAddBranch, onUpdateBranch, onDeleteBranch, onManageBranchProducts, atms = [], onManageATM, messages = [], onReplyMessage, transactions = [], onRequestDeposit, onRequestWithdrawal, onSendMessage, onNavigateToMap, onProcessTransaction, platformAccounts = [], onAddToCart }) => {
     const [view, setView] = useState<ProfileView>(initialView || 'MAIN');
     const [aiResult, setAiResult] = useState('');
     const [loadingAi, setLoadingAi] = useState(false);
@@ -402,11 +403,36 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
     };
 
     const handleSelectPlan = (planType: PlanType) => {
-        setSelectedUpgradePlan(planType);
-        setView(user.isBusiness ? 'PLAN_PAYMENT' : 'UPGRADE');
+        // Encontrar o plano selecionado
+        const plan = PLANS.find(p => p.type === planType);
+        if (!plan) return;
+
+        // Criar um "Produto" que representa este plano
+        const planProduct: Product = {
+            id: `plan_${planType}_${Date.now()}`,
+            title: `Plano ${planType}`,
+            price: plan.price,
+            companyName: 'Facilita Oficial',
+            category: 'Serviço',
+            image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=500&q=80',
+            isPromoted: false,
+            description: `Subscrição mensal do plano ${planType}. Acesso a mais funcionalidades para o seu negócio.`,
+            ownerId: 'admin-master'
+        };
+
+        // Adicionar ao carrinho se a função existir
+        if (onAddToCart) {
+            onAddToCart(planProduct);
+            showToast(`Plano ${planType} adicionado ao carrinho! Finalize a compra na loja.`, 'success');
+        } else {
+             // Fallback se não houver carrinho (comportamento antigo)
+            setSelectedUpgradePlan(planType);
+            setView(user.isBusiness ? 'PLAN_PAYMENT' : 'UPGRADE');
+        }
     };
 
     const handlePlanPayment = () => {
+        // Legacy function kept for "UPGRADE" view fallback
         setIsProcessingPayment(true);
         setTimeout(() => {
             setIsProcessingPayment(false);
@@ -425,11 +451,8 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
                 if (newMaxProd !== -1) newMaxProd += remainingProd;
                 if (newMaxHigh !== -1) newMaxHigh += remainingHigh;
 
-                // Charge user if needed, for now just update plan
-                // Simulate transaction by calling hook in parent if available or assumed handled
                 onUpdateUser({ ...user, plan: selectedUpgradePlan, walletBalance: (user.walletBalance || 0) - (selectedPlan?.price || 0), customLimits: { maxProducts: newMaxProd, maxHighlights: newMaxHigh } });
                 
-                // Hack to trigger transaction record in parent
                 if(onRequestDeposit) onRequestDeposit((selectedPlan?.price || 0), 'Carteira', undefined);
 
                 showToast(`Plano ${selectedUpgradePlan} ativado com sucesso!`);
@@ -457,11 +480,10 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
         }
         
         // Simular um atraso de GPS e gerar coordenadas visuais (0-100%) para o Mapa Mock
-        // Se usássemos GPS real (ex: -8.83), o pino ficaria fora da tela (top: -8%)
+        // Ajustado para garantir que o pino apareça na tela (20-80%)
         setTimeout(() => {
-             // Gerar coordenadas dentro da área visível segura (20-80%)
-             const visualLat = Math.floor(Math.random() * 60) + 20;
-             const visualLng = Math.floor(Math.random() * 60) + 20;
+             const visualLat = Math.floor(Math.random() * 60) + 20; // 20% a 80%
+             const visualLng = Math.floor(Math.random() * 60) + 20; // 20% a 80%
              
              setAtmLat(visualLat.toString());
              setAtmLng(visualLng.toString());
@@ -1052,7 +1074,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
                                 onClick={() => user.plan !== plan.type && handleSelectPlan(plan.type as PlanType)}
                                 disabled={user.plan === plan.type}
                             >
-                                {user.plan === plan.type ? 'Plano Atual' : 'Selecionar'}
+                                {user.plan === plan.type ? 'Plano Atual' : 'Adicionar ao Carrinho'}
                             </Button>
                         </div>
                     ))}
@@ -1135,11 +1157,6 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
                 <div className="mb-6 animate-[fadeIn_0.3s_ease-out]">
                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 ml-1">Ferramentas de Negócio</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                         <button onClick={onOpenMyProducts} className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center gap-2 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors">
-                            <Package size={20} className="text-indigo-600 dark:text-indigo-400" />
-                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Meus Produtos</span>
-                         </button>
-
                          <button onClick={() => setView('BRANCHES')} className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center gap-2 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors">
                             <GitBranch size={20} className="text-indigo-600 dark:text-indigo-400" />
                             <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Gerir Agências</span>
