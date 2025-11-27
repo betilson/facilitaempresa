@@ -12,7 +12,7 @@ async function runMigration() {
 
     try {
         // Read the schema SQL file
-        const schemaPath = path.join(process.cwd(), 'supabase/schema.sql');
+        const schemaPath = path.join((process as any).cwd(), 'supabase/schema.sql');
         const schema = fs.readFileSync(schemaPath, 'utf-8');
 
         console.log('📄 Schema file loaded successfully');

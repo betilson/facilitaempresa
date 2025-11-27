@@ -10,6 +10,7 @@ import {
     bankService 
 } from '../services/databaseService';
 import { User, Product, ATM, Transaction, Message, Bank } from '../types';
+import { MOCK_PRODUCTS, MOCK_ATMS, BANKS } from '../constants';
 
 export function useSupabaseUsers() {
     const [users, setUsers] = useState<User[]>([]);
@@ -123,6 +124,8 @@ export function useSupabaseProducts() {
             setProducts(mappedProducts);
         } catch (error: any) {
             console.error('Error loading products:', error.message || JSON.stringify(error));
+            console.warn('Supabase fetch failed. Using MOCK_PRODUCTS fallback.');
+            setProducts(MOCK_PRODUCTS);
         } finally {
             setLoading(false);
         }
@@ -198,6 +201,8 @@ export function useSupabaseATMs() {
             setAtms(convertedATMs);
         } catch (err: any) {
             console.error('Error loading ATMs:', err.message || JSON.stringify(err));
+            console.warn('Supabase fetch failed. Using MOCK_ATMS fallback.');
+            setAtms(MOCK_ATMS);
         } finally {
             setLoading(false);
         }
@@ -410,6 +415,8 @@ export function useSupabaseBanks() {
             setBanks(mappedBanks);
         } catch (error: any) {
             console.error('Error loading banks:', error.message || JSON.stringify(error));
+            console.warn('Supabase fetch failed. Using BANKS fallback.');
+            setBanks(BANKS);
         } finally {
             setLoading(false);
         }

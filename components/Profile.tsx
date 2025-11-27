@@ -466,8 +466,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
         if (onManageATM) {
             onManageATM('ADD', { id: crypto.randomUUID(), name: atmName || `ATM ${user.name}`, bank: user.name as any, address: atmAddress, status: atmStatus, lat: parseFloat(atmLat) || 0, lng: parseFloat(atmLng) || 0, distance: 'Calculando...', lastUpdated: 'Agora', votes: 0 });
             showToast("ATM adicionado com sucesso!");
-            // REMOVED redirection to map to keep user on management page
-            // if (onNavigateToMap) setTimeout(() => onNavigateToMap(), 800); 
+            // Kept on management page without redirection as requested
             setShowAddATM(false); setAtmName(''); setAtmAddress(''); setAtmStatus(ATMStatus.ONLINE); setAtmLat(''); setAtmLng('');
         }
     };
