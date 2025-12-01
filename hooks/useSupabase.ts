@@ -9,7 +9,7 @@ import {
     messageService,
     bankService
 } from '../services/databaseService';
-import { User, Product, ATM, Transaction, Message, Bank } from '../types';
+import { User, Product, ATM, Transaction, Message, Bank, Notification } from '../types';
 import { MOCK_PRODUCTS, MOCK_ATMS, BANKS } from '../constants';
 
 export function useSupabaseUsers() {
@@ -56,7 +56,10 @@ export function useSupabaseUsers() {
                 settings: {
                     notifications: u.notifications_enabled,
                     allowMessages: u.allow_messages
-                }
+                },
+                isVerified: u.is_verified,
+                favorites: u.favorites || [],
+                following: u.following || []
             }));
             setUsers(mappedUsers);
         } catch (error: any) {
@@ -134,29 +137,59 @@ export function useSupabaseProducts() {
 
     const addProduct = async (product: Partial<Product>) => {
         try {
+            // Optimistic update: Add to local state immediately
+            const tempProduct = product as Product;
+            setProducts(prev => [...prev, tempProduct]);
+
             await productService.createProduct(product);
+            // Refresh to get the server-generated data (gallery, etc.)
             await loadProducts();
         } catch (error: any) {
+            // Revert optimistic update on error
+            setProducts(prev => prev.filter(p => p.id !== product.id));
             console.error('Error adding product:', error.message || JSON.stringify(error));
-            throw error; // Re-throw to let caller handle (e.g. show alert)
+            throw error;
         }
     };
 
     const updateProduct = async (productId: string, updates: Partial<Product>) => {
+        const originalProduct = products.find(p => p.id === productId);
+
         try {
+            // Optimistic update: Update local state immediately
+            setProducts(prev => prev.map(p => p.id === productId ? { ...p, ...updates } : p));
+
             await productService.updateProduct(productId, updates);
-            await loadProducts();
         } catch (error: any) {
+            // Revert optimistic update on error
+            if (originalProduct) {
+                setProducts(prev => prev.map(p => p.id === productId ? originalProduct : p));
+            }
             console.error('Error updating product:', error.message || JSON.stringify(error));
+            throw error;
         }
     };
 
     const deleteProduct = async (productId: string) => {
+        const originalProduct = products.find(p => p.id === productId);
+        const originalIndex = products.findIndex(p => p.id === productId);
+
         try {
+            // Optimistic update: Remove from local state immediately
+            setProducts(prev => prev.filter(p => p.id !== productId));
+
             await productService.deleteProduct(productId);
-            await loadProducts();
         } catch (error: any) {
+            // Revert optimistic update on error
+            if (originalProduct && originalIndex !== -1) {
+                setProducts(prev => {
+                    const newProducts = [...prev];
+                    newProducts.splice(originalIndex, 0, originalProduct);
+                    return newProducts;
+                });
+            }
             console.error('Error deleting product:', error.message || JSON.stringify(error));
+            throw error;
         }
     };
 
@@ -210,34 +243,57 @@ export function useSupabaseATMs() {
     };
 
     const updateATM = async (atmId: string, updates: Partial<ATM>) => {
+        const originalATM = atms.find(a => a.id === atmId);
+
         try {
-            await atmService.updateATMStatus(atmId, updates.status || '');
-            await loadATMs();
-        } catch (err: any) {
-            console.error('Error updating ATM:', err.message || JSON.stringify(err));
-            // Optimistic update fallback if network fails temporarily
+            // Optimistic update: Update local state immediately
             setAtms(prev => prev.map(a => a.id === atmId ? { ...a, ...updates } : a));
+
+            await atmService.updateATMStatus(atmId, updates.status || '');
+        } catch (err: any) {
+            // Revert optimistic update on error
+            if (originalATM) {
+                setAtms(prev => prev.map(a => a.id === atmId ? originalATM : a));
+            }
+            console.error('Error updating ATM:', err.message || JSON.stringify(err));
+            throw err;
         }
     };
 
     const addATM = async (atm: ATM) => {
         try {
-            await atmService.createATM(atm);
-            // Realtime subscription will trigger loadATMs, but we call it just in case
-            await loadATMs();
-        } catch (err: any) {
-            console.error('Error adding ATM:', err.message || JSON.stringify(err));
+            // Optimistic update: Add to local state immediately
             setAtms(prev => [atm, ...prev]);
+
+            await atmService.createATM(atm);
+        } catch (err: any) {
+            // Revert optimistic update on error
+            setAtms(prev => prev.filter(a => a.id !== atm.id));
+            console.error('Error adding ATM:', err.message || JSON.stringify(err));
+            throw err;
         }
     };
 
     const deleteATM = async (atmId: string) => {
+        const originalATM = atms.find(a => a.id === atmId);
+        const originalIndex = atms.findIndex(a => a.id === atmId);
+
         try {
-            await atmService.deleteATM(atmId);
-            await loadATMs();
-        } catch (err: any) {
-            console.error('Error deleting ATM:', err.message || JSON.stringify(err));
+            // Optimistic update: Remove from local state immediately
             setAtms(prev => prev.filter(a => a.id !== atmId));
+
+            await atmService.deleteATM(atmId);
+        } catch (err: any) {
+            // Revert optimistic update on error
+            if (originalATM && originalIndex !== -1) {
+                setAtms(prev => {
+                    const newATMs = [...prev];
+                    newATMs.splice(originalIndex, 0, originalATM);
+                    return newATMs;
+                });
+            }
+            console.error('Error deleting ATM:', err.message || JSON.stringify(err));
+            throw err;
         }
     };
 
@@ -425,6 +481,11 @@ export function useSupabaseBanks() {
 
     const addBank = async (bank: Bank) => {
         try {
+            console.log('[useSupabase] addBank called with:', bank);
+
+            // Optimistic update: Add to local state immediately
+            setBanks(prev => [...prev, bank]);
+
             const dbBank = {
                 id: bank.id,
                 name: bank.name,
@@ -441,21 +502,58 @@ export function useSupabaseBanks() {
                 municipality: bank.municipality,
                 parent_id: bank.parentId,
                 type: bank.type,
-                is_bank: bank.isBank // Ensure is_bank is passed
+                is_bank: bank.isBank
             };
-            await bankService.createBank(dbBank);
-            await loadBanks();
-        } catch (error: any) {
-            // Catch RLS error and log it instead of crashing
-            console.error('Error adding bank:', error.message || JSON.stringify(error));
-            if (error.message && error.message.includes('row-level security')) {
-                console.warn("PERMISSIONS ERROR: Please run 'supabase/fix_permissions.sql' in your Supabase SQL Editor.");
+            console.log('[useSupabase] Sending to database:', dbBank);
+            const result = await bankService.createBank(dbBank);
+            console.log('[useSupabase] Bank created successfully:', result);
+
+            // Update with server response if different
+            if (result) {
+                setBanks(prev => prev.map(b => b.id === bank.id ? {
+                    id: result.id,
+                    name: result.name,
+                    logo: result.logo,
+                    coverImage: result.cover_image,
+                    description: result.description,
+                    followers: result.followers,
+                    reviews: result.reviews,
+                    phone: result.phone,
+                    email: result.email,
+                    nif: result.nif,
+                    address: result.address,
+                    province: result.province,
+                    municipality: result.municipality,
+                    parentId: result.parent_id,
+                    type: result.type as any,
+                    isBank: result.is_bank ?? false
+                } : b));
             }
+        } catch (error: any) {
+            // Revert optimistic update on error
+            setBanks(prev => prev.filter(b => b.id !== bank.id));
+
+            console.error('[useSupabase] Error adding bank:', error);
+            console.error('[useSupabase] Error message:', error.message);
+            console.error('[useSupabase] Error details:', JSON.stringify(error, null, 2));
+            if (error.message && error.message.includes('row-level security')) {
+                console.warn("PERMISSIONS ERROR: Please run 'supabase/fix_banks_rls.sql' in your Supabase SQL Editor.");
+                alert('Erro de permissões: Não foi possível salvar a agência. Verifique as políticas RLS no Supabase.');
+            } else {
+                alert(`Erro ao salvar agência: ${error.message || 'Erro desconhecido'}`);
+            }
+            throw error;
         }
     };
 
     const updateBank = async (bankId: string, updates: Partial<Bank>) => {
+        // Store original for rollback
+        const originalBank = banks.find(b => b.id === bankId);
+
         try {
+            // Optimistic update: Update local state immediately
+            setBanks(prev => prev.map(b => b.id === bankId ? { ...b, ...updates } : b));
+
             const dbUpdates: any = {};
             if (updates.name) dbUpdates.name = updates.name;
             if (updates.logo) dbUpdates.logo = updates.logo;
@@ -472,20 +570,107 @@ export function useSupabaseBanks() {
             if (updates.isBank !== undefined) dbUpdates.is_bank = updates.isBank;
 
             await bankService.updateBank(bankId, dbUpdates);
-            await loadBanks();
         } catch (error: any) {
+            // Revert optimistic update on error
+            if (originalBank) {
+                setBanks(prev => prev.map(b => b.id === bankId ? originalBank : b));
+            }
             console.error('Error updating bank:', error.message || JSON.stringify(error));
+            throw error;
         }
     };
 
     const deleteBank = async (bankId: string) => {
+        // Store original for rollback
+        const originalBank = banks.find(b => b.id === bankId);
+        const originalIndex = banks.findIndex(b => b.id === bankId);
+
         try {
+            // Optimistic update: Remove from local state immediately
+            setBanks(prev => prev.filter(b => b.id !== bankId));
+
             await bankService.deleteBank(bankId);
-            await loadBanks();
         } catch (error: any) {
+            // Revert optimistic update on error
+            if (originalBank && originalIndex !== -1) {
+                setBanks(prev => {
+                    const newBanks = [...prev];
+                    newBanks.splice(originalIndex, 0, originalBank);
+                    return newBanks;
+                });
+            }
             console.error('Error deleting bank:', error.message || JSON.stringify(error));
+            throw error;
         }
     };
 
     return { banks, loading, addBank, updateBank, deleteBank, refreshBanks: loadBanks };
+}
+
+export function useSupabaseNotifications(userId?: string) {
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (userId) {
+            loadNotifications();
+            const channel = supabase
+                .channel('realtime-notifications')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => {
+                    loadNotifications();
+                })
+                .subscribe();
+
+            return () => {
+                try { channel.unsubscribe(); } catch (e) { /* ignore */ }
+            };
+        }
+    }, [userId]);
+
+    const loadNotifications = async () => {
+        if (!userId) return;
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', userId)
+                .order('timestamp', { ascending: false });
+
+            if (error) throw error;
+
+            const mappedNotifications: Notification[] = data.map(n => ({
+                id: n.id,
+                userId: n.user_id,
+                title: n.title,
+                desc: n.description,
+                timestamp: Number(n.timestamp),
+                read: n.read,
+                type: n.type as any,
+                relatedEntityId: n.related_entity_id
+            }));
+            setNotifications(mappedNotifications);
+        } catch (error: any) {
+            console.error('Error loading notifications:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const markAsRead = async (notificationId: string) => {
+        try {
+            await supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('id', notificationId);
+
+            setNotifications(prev => prev.map(n =>
+                n.id === notificationId ? { ...n, read: true } : n
+            ));
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
+
+    return { notifications, loading, markAsRead, refreshNotifications: loadNotifications };
 }

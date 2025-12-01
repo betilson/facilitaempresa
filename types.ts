@@ -1,5 +1,4 @@
 
-
 export enum ATMStatus {
   ONLINE = 'Online',
   OFFLINE = 'Offline',
@@ -30,7 +29,7 @@ export interface Bank {
   address?: string;
   province?: string;
   municipality?: string;
-  
+
   // Hierarchy for Branches/Affiliates
   parentId?: string; // ID of the HQ if this is a branch
   type?: 'HQ' | 'BRANCH'; // Type of entity
@@ -120,6 +119,7 @@ export interface User {
   settings?: UserSettings; // New User Settings
   accountStatus?: 'Active' | 'Blocked' | 'Pending'; // Admin status control
   bankDetails?: UserBankDetails; // New: Company Bank Details for withdrawals
+  isVerified?: boolean; // Bank verification status
 }
 
 export interface Transaction {

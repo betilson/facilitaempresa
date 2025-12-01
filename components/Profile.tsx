@@ -417,7 +417,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
             image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=500&q=80',
             isPromoted: false,
             description: `Subscrição mensal do plano ${planType}. Acesso a mais funcionalidades para o seu negócio.`,
-            ownerId: 'admin-master'
+            ownerId: '00000000-0000-0000-0000-000000000000'
         };
 
         // Adicionar ao carrinho se a função existir
@@ -463,6 +463,12 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
 
     const handleSubmitATM = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (user.isVerified !== true) {
+            showToast("Sua instituição ainda não foi verificada.", 'error');
+            return;
+        }
+
         if (onManageATM) {
             onManageATM('ADD', { id: crypto.randomUUID(), name: atmName || `ATM ${user.name}`, bank: user.name as any, address: atmAddress, status: atmStatus, lat: parseFloat(atmLat) || 0, lng: parseFloat(atmLng) || 0, distance: 'Calculando...', lastUpdated: 'Agora', votes: 0 });
             showToast("ATM adicionado com sucesso!");
@@ -525,7 +531,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
 
     const handleSendSupportMessage = (e: React.FormEvent) => {
         e.preventDefault();
-        if (supportMessage.trim() && onSendMessage) { onSendMessage('admin-master', supportMessage); setSupportMessage(''); showToast("Mensagem enviada para o suporte!", 'success'); }
+        if (supportMessage.trim() && onSendMessage) { onSendMessage('00000000-0000-0000-0000-000000000000', supportMessage); setSupportMessage(''); showToast("Mensagem enviada para o suporte!", 'success'); }
     };
 
     // --- RENDER VIEWS ---
@@ -666,7 +672,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
     if (view === 'PERSONAL') {
         return (
             <ProfileContainer>
-                <Header title="Dados Pessoais" onBack={() => setView('MAIN')} />
+                <Header title={user.isBusiness ? "Dados da Empresa" : "Dados Pessoais"} onBack={() => setView('MAIN')} />
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
                     <div className="space-y-4">
                         <div><label className="text-sm font-bold text-gray-600 dark:text-gray-300 block mb-1">Nome Completo</label><input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" /></div>
@@ -742,7 +748,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
                             Object.keys(myConversations).map(partnerId => {
                                 const msgs = myConversations[partnerId].sort((a, b) => b.timestamp - a.timestamp);
                                 const lastMsg = msgs[0];
-                                const name = lastMsg.senderId === user.id ? (lastMsg.receiverId === 'admin-master' ? 'Suporte' : 'Utilizador') : lastMsg.senderName;
+                                const name = lastMsg.senderId === user.id ? (lastMsg.receiverId === '00000000-0000-0000-0000-000000000000' ? 'Suporte' : 'Utilizador') : lastMsg.senderName;
                                 return (
                                     <button key={partnerId} onClick={() => setSelectedMessageId(lastMsg.id)} className="w-full bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex gap-4 text-left hover:border-indigo-200 transition-colors">
                                         <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">{name.charAt(0)}</div>
@@ -810,10 +816,29 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
 
     if (view === 'ATM_MANAGEMENT') {
         const myATMs = atms.filter(a => a.bank === user.name);
+        // Check if user is verified (access to this view is already restricted to banks)
+        const isVerifiedBank = user.isVerified;
+
         return (
             <ProfileContainer>
                 <Header title="Gestão de ATMs" onBack={() => setView('MAIN')} />
-                {showAddATM ? (
+
+                {!isVerifiedBank ? (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-2xl p-6 text-center mb-6 animate-[fadeIn_0.3s_ease-out]">
+                        <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-800/30 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600 dark:text-yellow-400">
+                            <Shield size={32} />
+                        </div>
+                        <h3 className="font-bold text-lg text-yellow-800 dark:text-yellow-200 mb-2">Verificação Necessária</h3>
+                        <p className="text-yellow-700 dark:text-yellow-300 text-sm mb-4 max-w-md mx-auto">
+                            Para garantir a segurança da plataforma, instituições bancárias precisam de aprovação do administrador antes de publicar ATMs.
+                        </p>
+                        <div className="flex flex-col items-center gap-2">
+                            <p className="text-xs font-bold text-yellow-800 dark:text-yellow-200 bg-yellow-200/50 dark:bg-yellow-700/30 py-2 px-4 rounded-lg inline-block">
+                                <Clock size={14} className="inline mr-1 -mt-0.5" /> Tempo estimado: até 24 horas
+                            </p>
+                        </div>
+                    </div>
+                ) : showAddATM ? (
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 animate-[fadeIn_0.3s_ease-out]">
                         <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white">Adicionar ATM</h3>
                         <form onSubmit={handleSubmitATM} className="space-y-4">
@@ -1126,7 +1151,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onLogout, onOpenMyProduc
                     <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                         <UserIcon size={20} />
                     </div>
-                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Dados Pessoais</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{user.isBusiness ? 'Dados da Empresa' : 'Dados Pessoais'}</span>
                 </button>
 
                 <button onClick={() => setView('WALLET')} className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">

@@ -14,7 +14,7 @@ interface MapViewProps {
 
 export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValidateATM, votedAtms = [] }) => {
     const [selectedATM, setSelectedATM] = useState<ATM | null>(null);
-    const [filter, setFilter] = useState<'ALL' | 'HAS_MONEY' | 'ONLINE'>('ALL');
+    const [filter, setFilter] = useState<'ALL' | 'HAS_MONEY' | 'ONLINE' | 'OFFLINE'>('ALL');
 
     // Navigation State
     const [isNavigating, setIsNavigating] = useState(false);
@@ -81,28 +81,68 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
     const filteredATMs = atms.filter(atm => {
         if (filter === 'HAS_MONEY') return atm.status === ATMStatus.HAS_MONEY;
         if (filter === 'ONLINE') return atm.status !== ATMStatus.OFFLINE;
+        if (filter === 'OFFLINE') return atm.status === ATMStatus.OFFLINE;
         return true;
     });
 
-    const getPinColor = (status: ATMStatus) => {
+    // Debug logging
+    useEffect(() => {
+        console.log('[MapView] ATMs received:', atms);
+        console.log('[MapView] Filtered ATMs:', filteredATMs);
+        console.log('[MapView] Filter:', filter);
+    }, [atms, filteredATMs, filter]);
+
+    const getRingColor = (status: ATMStatus) => {
         switch (status) {
-            case ATMStatus.HAS_MONEY: return 'bg-teal-500'; // Teal for money
-            case ATMStatus.ONLINE: return 'bg-yellow-500'; // Yellow for online
-            case ATMStatus.NO_MONEY: return 'bg-orange-500';
-            case ATMStatus.OFFLINE: return 'bg-red-600'; // Red for offline/error
-            default: return 'bg-gray-500';
+            case ATMStatus.HAS_MONEY: return 'ring-4 ring-green-500'; // Green ring for money
+            case ATMStatus.ONLINE: return 'ring-4 ring-yellow-500'; // Yellow ring for online
+            case ATMStatus.NO_MONEY: return 'ring-4 ring-orange-500'; // Orange ring for no money
+            case ATMStatus.OFFLINE: return 'ring-4 ring-red-600'; // Red ring for offline
+            default: return 'ring-4 ring-gray-500';
         }
     };
 
-    const handleNavigate = () => {
+    const handleNavigate = async () => {
         if (!selectedATM) return;
 
         if (!navigator.geolocation) {
-            setToast({ show: true, message: "Geolocalização não suportada.", type: 'error' });
+            setToast({ show: true, message: "Geolocalização não suportada neste navegador.", type: 'error' });
             return;
         }
 
-        // Get initial position to setup the "target"
+        // Check if Permissions API is available (modern browsers)
+        if ('permissions' in navigator) {
+            try {
+                const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+
+                if (permissionStatus.state === 'denied') {
+                    setToast({
+                        show: true,
+                        message: "Localização bloqueada. Por favor, ative a localização nas configurações do seu navegador/telefone.",
+                        type: 'warning'
+                    });
+
+                    // Open Google Maps as fallback
+                    setTimeout(() => {
+                        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selectedATM.lat},${selectedATM.lng}`;
+                        window.open(mapsUrl, '_blank');
+                    }, 2000);
+                    return;
+                }
+
+                if (permissionStatus.state === 'prompt') {
+                    setToast({
+                        show: true,
+                        message: "Por favor, permita o acesso à sua localização quando solicitado.",
+                        type: 'info'
+                    });
+                }
+            } catch (error) {
+                console.log('Permissions API not fully supported, proceeding with geolocation request');
+            }
+        }
+
+        // Request geolocation with better error handling
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude, heading } = pos.coords;
@@ -117,6 +157,12 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
 
                 setNavigationTarget({ lat: targetLat, lng: targetLng });
                 setIsNavigating(true);
+
+                setToast({
+                    show: true,
+                    message: "Navegação iniciada! Siga as instruções.",
+                    type: 'success'
+                });
 
                 // Start Watching Position
                 watchIdRef.current = navigator.geolocation.watchPosition(
@@ -140,12 +186,55 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                         else if (distKm < 0.5) setInstructionStep(1);
                         else setInstructionStep(0);
                     },
-                    (err) => console.error(err),
+                    (err) => console.error('Error watching position:', err),
                     { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
                 );
             },
             (err) => {
-                setToast({ show: true, message: "Permissão de localização negada.", type: 'error' });
+                // Improved error handling with specific messages
+                let errorMessage = "Erro ao obter localização.";
+                let errorTitle = "Erro de Localização";
+                let isPermissionError = false;
+
+                switch (err.code) {
+                    case err.PERMISSION_DENIED:
+                        errorTitle = "Permissão Negada";
+                        errorMessage = "Você negou o acesso à localização. Para usar a navegação:\n\n" +
+                            "📱 No telefone: Vá em Configurações > Privacidade > Localização e ative para este navegador.\n\n" +
+                            "💻 No computador: Clique no ícone de cadeado/informação na barra de endereço e permita a localização.\n\n" +
+                            "Abrindo Google Maps como alternativa...";
+                        isPermissionError = true;
+                        break;
+                    case err.POSITION_UNAVAILABLE:
+                        errorMessage = "Localização indisponível. Verifique se:\n" +
+                            "• O GPS está ativado\n" +
+                            "• Você está em área com sinal\n" +
+                            "• O serviço de localização está funcionando";
+                        break;
+                    case err.TIMEOUT:
+                        errorMessage = "Tempo esgotado ao obter localização. Tente novamente ou verifique sua conexão.";
+                        break;
+                }
+
+                console.error(`${errorTitle}:`, errorMessage, err);
+
+                setToast({
+                    show: true,
+                    message: isPermissionError ? errorMessage : `${errorTitle}: ${errorMessage}`,
+                    type: isPermissionError ? 'warning' : 'error'
+                });
+
+                // Fallback: Open in Google Maps
+                if (selectedATM) {
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selectedATM.lat},${selectedATM.lng}`;
+                    // Longer delay for permission errors to let user read the message
+                    setTimeout(() => window.open(mapsUrl, '_blank'), isPermissionError ? 3000 : 1500);
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000, // Increased timeout for mobile
+                maximumAge: 0 // Don't use cached position
             }
         );
     };
@@ -199,6 +288,18 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
 
     return (
         <div className="relative h-full w-full bg-gray-100 overflow-hidden">
+            {/* Fallback for no ATMs */}
+            {atms.length === 0 && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-100/80 backdrop-blur-sm pointer-events-none">
+                    <div className="bg-white p-6 rounded-2xl shadow-xl text-center max-w-sm mx-4">
+                        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <MapPin className="text-indigo-600" size={32} />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Nenhum ATM Encontrado</h3>
+                        <p className="text-gray-500 text-sm">Não foi possível carregar os ATMs ou não há nenhum cadastrado no momento.</p>
+                    </div>
+                </div>
+            )}
 
             {/* --- Top Navigation Overlay (Active Mode) --- */}
             {isNavigating && selectedATM && (
@@ -242,7 +343,7 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                     <path d="M30,0 L35,80" stroke="gray" strokeWidth="1.5" fill="none" vectorEffect="non-scaling-stroke" opacity="0.2" />
                     <path d="M10,50 L70,50" stroke="gray" strokeWidth="1.2" fill="none" vectorEffect="non-scaling-stroke" opacity="0.2" />
 
-                    {/* Dynamic Route Line (Only works visually if we map real coords to svg coords, simpler to show straight line) */}
+                    {/* Dynamic Route Line */}
                     {isNavigating && selectedATM && (
                         <line
                             x1="50"
@@ -258,7 +359,7 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                     )}
                 </svg>
 
-                {/* User Location Pulse - Always Centered if Navigating to simulate 'Camera Follow' */}
+                {/* User Location Pulse */}
                 <div
                     className={`absolute z-10 transition-all duration-500 ease-linear`}
                     style={{
@@ -268,7 +369,7 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                     }}
                 >
                     {isNavigating ? (
-                        // Navigation Arrow (Rotates based on bearing to target)
+                        // Navigation Arrow
                         <div className="w-16 h-16 flex items-center justify-center relative">
                             <Navigation size={40} className="text-indigo-600 fill-indigo-600 drop-shadow-xl" />
                             {/* Radar ping effect */}
@@ -290,7 +391,7 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                     <button
                         key={atm.id}
                         onClick={() => setSelectedATM(atm)}
-                        disabled={isNavigating && selectedATM?.id !== atm.id} // Disable other pins during nav
+                        disabled={isNavigating && selectedATM?.id !== atm.id}
                         className={`absolute transform -translate-x-1/2 -translate-y-full transition-all duration-300 z-20 
                 ${isNavigating && selectedATM?.id !== atm.id ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:scale-110'}
             `}
@@ -299,21 +400,26 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                             top: `${atm.lat}%`
                         }}
                     >
-                        <div className={`w-12 h-12 rounded-full ${getPinColor(atm.status)} border-4 border-white shadow-lg flex items-center justify-center relative p-1.5`}>
-                            {/* If navigating to this pin, show target indicator */}
+                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full ${getRingColor(atm.status)} shadow-lg flex items-center justify-center relative transition-all duration-300 p-0.5`}>
                             {isNavigating && selectedATM?.id === atm.id ? (
-                                <div className="w-3 h-3 bg-white rounded-full animate-bounce"></div>
+                                <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                                    <div className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce"></div>
+                                </div>
                             ) : (
                                 (() => {
                                     const bank = banks.find(b => b.name === atm.bank);
                                     if (bank && bank.logo) {
                                         return (
-                                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                                                <img src={bank.logo} alt={atm.bank} className="w-full h-full object-cover" />
+                                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5">
+                                                <img src={bank.logo} alt={atm.bank} className="w-full h-full object-cover rounded-full" />
                                             </div>
                                         );
                                     }
-                                    return <span className="text-white text-xs font-bold">ATM</span>;
+                                    return (
+                                        <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                                            <span className="text-gray-700 text-[10px] font-bold">ATM</span>
+                                        </div>
+                                    );
                                 })()
                             )}
                         </div>
@@ -326,7 +432,7 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                 ))}
             </div>
 
-            {/* Top Filter Bar - Hide when navigating */}
+            {/* Top Filter Bar */}
             {!isNavigating && (
                 <div className="absolute top-10 left-4 right-4 z-30 flex gap-2 overflow-x-auto no-scrollbar pb-2 animate-[fadeIn_0.3s_ease-out]">
                     <button
@@ -343,6 +449,11 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                         onClick={() => setFilter('ONLINE')}
                         className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap shadow-sm transition-colors ${filter === 'ONLINE' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-700'}`}>
                         Sistema Online 🟢
+                    </button>
+                    <button
+                        onClick={() => setFilter('OFFLINE')}
+                        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap shadow-sm transition-colors ${filter === 'OFFLINE' ? 'bg-red-600 text-white' : 'bg-white text-gray-700'}`}>
+                        Offline 🔴
                     </button>
                 </div>
             )}
@@ -392,7 +503,7 @@ export const MapView: React.FC<MapViewProps> = ({ atms = [], banks = [], onValid
                 </div>
             )}
 
-            {/* Validation Only Bottom Sheet (When Arrived) */}
+            {/* Validation Only Bottom Sheet */}
             {isNavigating && remainingDist < 0.1 && (
                 <div className="absolute bottom-6 left-6 right-6 bg-white rounded-2xl shadow-2xl z-50 p-4 animate-[bounceIn_0.5s_ease-out]">
                     <div className="text-center">

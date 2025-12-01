@@ -1,5 +1,4 @@
-
-
+﻿
 
 import React, { useState, useEffect } from 'react';
 import { Login } from './components/Login';
@@ -12,12 +11,10 @@ import { Cart } from './components/Cart';
 import { PublishProduct } from './components/PublishProduct';
 import { MyProducts } from './components/MyProducts';
 import { AdminDashboard } from './components/AdminDashboard';
-import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { Map, ShoppingBag, User, Home, Menu, X, Settings, HelpCircle, FileText, LogOut, ChevronRight, LayoutGrid } from 'lucide-react';
 import { User as UserType, Bank, Product, PlanType, ATM, Message, Notification, Attachment, Transaction, Plan, PaymentGatewayConfig, PlatformBankAccount, WithdrawalRequest } from './types';
 import { MOCK_PRODUCTS, BANKS, MOCK_ATMS, PLANS as DEFAULT_PLANS } from './constants';
 import { useSupabaseUsers, useSupabaseProducts, useSupabaseATMs, useSupabaseTransactions, useSupabaseMessages, useSupabaseBanks } from './hooks/useSupabase';
-
 
 const App: React.FC = () => {
     const [user, setUser] = useState<UserType | null>(null);
@@ -31,7 +28,7 @@ const App: React.FC = () => {
     const [navTimestamp, setNavTimestamp] = useState(Date.now());
     const [targetConversationId, setTargetConversationId] = useState<string | null>(null);
 
-    // Supabase Hooks - Sincronização automática com base de dados
+    // Supabase Hooks - Sincroniza├º├úo autom├ítica com base de dados
     const { users: allUsers, loading: usersLoading, addUser, updateUser: updateUserInDB, refreshUsers } = useSupabaseUsers();
     const { products, addProduct, updateProduct: updateProductInDB, deleteProduct: deleteProductFromDB } = useSupabaseProducts();
     const { atms, updateATM: updateATMInDB, addATM, deleteATM } = useSupabaseATMs();
@@ -82,7 +79,7 @@ const App: React.FC = () => {
     }, [userMessages]);
 
     const [notifications, setNotifications] = useState<Notification[]>([
-        { id: 'n1', userId: 'global', title: 'Bem-vindo ao Facilita', desc: 'Explore os melhores serviços e produtos de Angola.', timestamp: Date.now() - 100000, read: false, type: 'info' }
+        { id: 'n1', userId: 'global', title: 'Bem-vindo ao Facilita', desc: 'Explore os melhores servi├ºos e produtos de Angola.', timestamp: Date.now() - 100000, read: false, type: 'info' }
     ]);
 
     // Combine Supabase transactions with local state
@@ -135,7 +132,7 @@ const App: React.FC = () => {
                 name: userWithFavs.name,
                 logo: userWithFavs.profileImage || '',
                 coverImage: userWithFavs.coverImage || '',
-                description: `Bem-vindo à ${userWithFavs.name}.`,
+                description: `Bem-vindo ├á ${userWithFavs.name}.`,
                 followers: 0,
                 reviews: 0,
                 phone: userWithFavs.phone,
@@ -399,7 +396,7 @@ const App: React.FC = () => {
     const openPublishModal = (productToEdit?: Product) => { setEditingProduct(productToEdit || null); setShowPublishModal(true); };
     const openBranchProductManager = (branchId: string, branchName: string) => { setBranchManageId(branchId); setBranchManageName(branchName); setShowMyProducts(true); };
     const openBranchPublishModal = (productToEdit?: Product) => { setEditingProduct(productToEdit || null); setShowPublishModal(true); };
-    const handleSendMessage = (receiverId: string, content: string, productId?: string, productName?: string, attachment?: Attachment) => { if (!user) return; const newMessage: Message = { id: Date.now().toString(), senderId: user.id, senderName: user.name, receiverId, productId, productName, content, attachment, timestamp: Date.now(), isRead: false, isFromBusiness: false }; setMessages(prev => [newMessage, ...prev]); setNotifications(prev => [...prev, { id: `notif-${Date.now()}`, userId: receiverId, title: 'Nova Mensagem', desc: `Você recebeu uma mensagem.`, timestamp: Date.now(), read: false, type: 'message', relatedEntityId: user.id }]); };
+    const handleSendMessage = (receiverId: string, content: string, productId?: string, productName?: string, attachment?: Attachment) => { if (!user) return; const newMessage: Message = { id: Date.now().toString(), senderId: user.id, senderName: user.name, receiverId, productId, productName, content, attachment, timestamp: Date.now(), isRead: false, isFromBusiness: false }; setMessages(prev => [newMessage, ...prev]); setNotifications(prev => [...prev, { id: `notif-${Date.now()}`, userId: receiverId, title: 'Nova Mensagem', desc: `Voc├¬ recebeu uma mensagem.`, timestamp: Date.now(), read: false, type: 'message', relatedEntityId: user.id }]); };
     const handleReplyMessage = (originalMessage: Message, content: string, attachment?: Attachment) => { if (!user) return; const receiverId = originalMessage.senderId === user.id ? originalMessage.receiverId : originalMessage.senderId; const newMessage: Message = { id: Date.now().toString(), senderId: user.id, senderName: user.name, receiverId: receiverId, productId: originalMessage.productId, productName: originalMessage.productName, content, attachment, timestamp: Date.now(), isRead: false, isFromBusiness: user.isBusiness && user.id !== originalMessage.senderId }; setMessages(prev => [newMessage, ...prev]); setNotifications(prev => [...prev, { id: `notif-${Date.now()}`, userId: receiverId, title: 'Nova Resposta', desc: `${user.name} respondeu.`, timestamp: Date.now(), read: false, type: 'message', relatedEntityId: user.id }]); };
     const handleNotificationClick = (notification: Notification) => { if (notification.type === 'message') { setActiveTab('PROFILE'); setProfileInitialView('MESSAGES'); setNavTimestamp(Date.now()); if (notification.relatedEntityId) setTargetConversationId(notification.relatedEntityId); } setNotifications(prev => prev.filter(n => n.id !== notification.id)); setIsMenuOpen(false); setSelectedBank(null); setSelectedProduct(null); };
     const handleClearNotifications = () => { if (!user) return; setNotifications(prev => prev.map(n => (n.userId === user.id || n.userId === 'global') ? { ...n, read: true } : n)); };
@@ -458,27 +455,7 @@ const App: React.FC = () => {
             }
         }
     };
-    const handleUpdateUserStatus = (userId: string, action: 'block' | 'verify' | 'unblock') => {
-        console.log('DEBUG: handleUpdateUserStatus called', { userId, action });
-        const targetUser = allUsers.find(u => u.id === userId);
-        if (targetUser) {
-            const updates: Partial<UserType> = {};
-            if (action === 'block') updates.accountStatus = 'Blocked';
-            if (action === 'unblock') updates.accountStatus = 'Active';
-            if (action === 'verify') {
-                updates.isVerified = true;
-                updates.isBank = true;
-                updates.accountStatus = 'Active';
-            }
-            console.log('DEBUG: Updates to apply:', updates);
-            updateUserInDB(userId, updates);
-
-            if (action === 'verify') {
-                alert(`Instituição "${targetUser.name}" verificada com sucesso!\n\nO banco agora pode cadastrar ATMs.`);
-                setTimeout(() => refreshUsers(), 500);
-            }
-        }
-    };
+    const handleUpdateUserStatus = (userId: string, action: 'block' | 'verify' | 'unblock') => { const targetUser = allUsers.find(u => u.id === userId); if (targetUser) { const updates: Partial<UserType> = {}; if (action === 'block') updates.accountStatus = 'Blocked'; if (action === 'unblock') updates.accountStatus = 'Active'; updateUserInDB(userId, updates); } };
     const handleRequestDeposit = (amount: number, method: 'Multicaixa' | 'Visa' | 'Carteira' | 'Transferencia', proof?: string) => { if (!user) return; const newTx: Transaction = { id: `deposit-${Date.now()}`, user: user.id, amount: amount, date: new Date().toLocaleDateString('pt-BR'), timestamp: Date.now(), status: 'Pendente', method: method, category: 'DEPOSIT', reference: `REF-${Math.floor(Math.random() * 1000000)}`, otherPartyName: 'Facilita Plataforma', proofUrl: proof }; setTransactions(prev => [newTx, ...prev]); };
     // ATM Management Handlers
     const handleManageATM = (action: 'ADD' | 'UPDATE' | 'DELETE', atmData: Partial<ATM> & { id?: string }) => {
@@ -492,62 +469,8 @@ const App: React.FC = () => {
         }
     };
 
-    const handleValidateATM = (atmId: string) => {
-        setVotedAtms(prev => {
-            if (prev.includes(atmId)) {
-                // Remove vote
-                return prev.filter(id => id !== atmId);
-            } else {
-                // Add vote
-                return [...prev, atmId];
-            }
-        });
-
-        // Update the ATM votes count in the database
-        const atm = atms.find(a => a.id === atmId);
-        if (atm) {
-            const newVotes = votedAtms.includes(atmId) ? (atm.votes || 0) - 1 : (atm.votes || 0) + 1;
-            updateATMInDB(atmId, { votes: Math.max(0, newVotes) });
-        }
-    };
-
-
-    const handleAddBranch = (branchData: Partial<Bank>) => {
-        if (!user) return;
-
-        // Generate a proper UUID for the branch
-        let newBranchId;
-        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-            newBranchId = crypto.randomUUID();
-        } else {
-            // Fallback UUID v4 generator
-            newBranchId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
-        const newBranch: Bank = {
-            id: newBranchId,
-            name: branchData.name || '',
-            logo: branchData.logo || '',
-            coverImage: branchData.coverImage || '',
-            description: branchData.description || '',
-            followers: 0,
-            reviews: 0,
-            phone: branchData.phone,
-            email: user.email,
-            nif: user.nif,
-            address: branchData.address,
-            province: branchData.province,
-            municipality: branchData.municipality,
-            parentId: user.id,
-            type: 'BRANCH',
-            isBank: false
-        };
-        console.log('Adding new branch:', newBranch);
-        addBank(newBranch);
-    };
+    const handleValidateATM = (atmId: string) => { const hasVoted = votedAtms.includes(atmId); const targetAtm = atms.find(a => a.id === atmId); if (targetAtm) { const currentVotes = targetAtm.votes || 0; const newVotes = hasVoted ? Math.max(0, currentVotes - 1) : currentVotes + 1; updateATMInDB(atmId, { votes: newVotes }); } if (hasVoted) { setVotedAtms(prev => prev.filter(id => id !== atmId)); } else { setVotedAtms(prev => [...prev, atmId]); } };
+    const handleAddBranch = (branchData: Partial<Bank>) => { if (!user) return; const newBranch: Bank = { id: `${user.id}-branch-${Date.now()}`, name: branchData.name || '', logo: branchData.logo || '', coverImage: branchData.coverImage || '', description: branchData.description || '', followers: 0, reviews: 0, phone: branchData.phone, email: user.email, nif: user.nif, address: branchData.address, province: branchData.province, municipality: branchData.municipality, parentId: user.id, type: 'BRANCH' }; addBank(newBranch); };
     const handleUpdateBranch = (branchId: string, branchData: Partial<Bank>) => { updateBank(branchId, branchData); };
     const handleDeleteBranch = (branchId: string) => { deleteBank(branchId); };
 
@@ -590,8 +513,7 @@ const App: React.FC = () => {
                 if (selectedBank) return <BankProfile user={user} bank={selectedBank} products={products} allBanks={allBanks} onBack={() => setSelectedBank(null)} onSelectProduct={setSelectedProduct} onToggleFollow={handleToggleFollow} onRate={handleRateCompany} onSelectBranch={(branch: Bank) => setSelectedBank(branch)} />;
                 return <Dashboard products={products} banks={banks} otherCompanies={otherCompanies} onSelectBank={setSelectedBank} onSelectProduct={setSelectedProduct} onViewMarket={() => setActiveTab('MARKET')} notifications={userNotifications} onClearNotifications={handleClearNotifications} onNotificationClick={handleNotificationClick} />;
             case 'MAP':
-                console.log('[App] Rendering MAP tab, atms:', atms, 'allBanks:', allBanks);
-                return <MapView atms={atms} banks={allBanks} onValidateATM={handleValidateATM} votedAtms={votedAtms} />;
+                return <MapView atms={atms} onValidateATM={handleValidateATM} votedAtms={votedAtms} />;
             case 'MARKET':
                 return <Marketplace user={user} products={products} onSelectProduct={setSelectedProduct} onOpenPublish={() => { setBranchManageId(null); setBranchManageName(null); openPublishModal(); }} onViewPlans={() => { setProfileInitialView('PLANS'); setActiveTab('PROFILE'); }} />;
             case 'PROFILE':
@@ -617,7 +539,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <nav className="flex-1 px-6 space-y-2">
-                    <SidebarButton icon={Home} label="Início" tab="HOME" active={activeTab === 'HOME'} />
+                    <SidebarButton icon={Home} label="In├¡cio" tab="HOME" active={activeTab === 'HOME'} />
                     <SidebarButton icon={Map} label="Mapa ATM" tab="MAP" active={activeTab === 'MAP'} />
                     <SidebarButton icon={ShoppingBag} label="Loja" tab="MARKET" active={activeTab === 'MARKET'} />
                     <SidebarButton icon={User} label="Perfil" tab="PROFILE" active={activeTab === 'PROFILE'} />
@@ -659,15 +581,12 @@ const App: React.FC = () => {
                     <div className="h-full w-full overflow-hidden relative">
                         {renderContent()}
                         {isCartOpen && user && <Cart items={cartItems} user={user} onRemoveItem={removeFromCart} onClose={() => setIsCartOpen(false)} onCheckout={handleCheckout} platformAccounts={platformAccounts} />}
-
-                        {/* PWA Install Prompt */}
-                        {user && <PWAInstallPrompt />}
                     </div>
                 </div>
 
                 {/* Bottom Menu - Updated padding to pb-7 (28px) */}
                 <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-around px-4 pt-2 pb-7 w-full z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
-                    <button onClick={() => navigateTo('HOME')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'HOME' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'HOME' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><Home size={22} className={activeTab === 'HOME' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'HOME' && <span className="text-[9px] font-bold mt-1 animate-fade-in">Início</span>}</button>
+                    <button onClick={() => navigateTo('HOME')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'HOME' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'HOME' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><Home size={22} className={activeTab === 'HOME' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'HOME' && <span className="text-[9px] font-bold mt-1 animate-fade-in">In├¡cio</span>}</button>
                     <button onClick={() => navigateTo('MAP')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'MAP' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'MAP' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><Map size={22} className={activeTab === 'MAP' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'MAP' && <span className="text-[9px] font-bold mt-1 animate-fade-in">Mapa</span>}</button>
                     <button onClick={() => navigateTo('MARKET')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'MARKET' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'MARKET' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><ShoppingBag size={22} className={activeTab === 'MARKET' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'MARKET' && <span className="text-[9px] font-bold mt-1 animate-fade-in">Loja</span>}</button>
                     <button onClick={() => navigateTo('PROFILE')} className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${activeTab === 'PROFILE' ? 'text-indigo-600 -translate-y-2 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}><div className={`p-1.5 rounded-xl transition-all ${activeTab === 'PROFILE' ? 'bg-indigo-50 dark:bg-indigo-900/40' : 'bg-transparent'}`}><User size={22} className={activeTab === 'PROFILE' ? 'fill-indigo-600 dark:fill-indigo-400' : ''} /></div>{activeTab === 'PROFILE' && <span className="text-[9px] font-bold mt-1 animate-fade-in">Perfil</span>}</button>
@@ -687,13 +606,13 @@ const App: React.FC = () => {
                         </div>
                         <div className="flex-1 overflow-y-auto py-6">
                             <nav className="space-y-1 px-4">
-                                <button onClick={() => navigateToProfileSection('SETTINGS')} className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"><div className="flex items-center gap-3"><Settings size={20} /> Configurações</div><ChevronRight size={16} className="text-gray-300 dark:text-gray-600" /></button>
+                                <button onClick={() => navigateToProfileSection('SETTINGS')} className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"><div className="flex items-center gap-3"><Settings size={20} /> Configura├º├Áes</div><ChevronRight size={16} className="text-gray-300 dark:text-gray-600" /></button>
                                 <button onClick={() => navigateToProfileSection('HELP')} className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"><div className="flex items-center gap-3"><HelpCircle size={20} /> Ajuda & Suporte</div><ChevronRight size={16} className="text-gray-300 dark:text-gray-600" /></button>
                                 <button onClick={() => navigateToProfileSection('TERMS')} className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"><div className="flex items-center gap-3"><FileText size={20} /> Termos de Uso</div><ChevronRight size={16} className="text-gray-300 dark:text-gray-600" /></button>
                             </nav>
                         </div>
                         <div className="p-6 border-t border-gray-100 dark:border-gray-800">
-                            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-4 text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl transition-colors dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"><LogOut size={20} /> Terminar Sessão</button>
+                            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-4 text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl transition-colors dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"><LogOut size={20} /> Terminar Sess├úo</button>
                         </div>
                     </div>
                 </div>

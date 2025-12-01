@@ -11,14 +11,14 @@ interface AdminDashboardProps {
     onLogout: () => void;
     transactions?: Transaction[];
     onTransactionAction?: (id: string, action: 'approve' | 'reject') => void;
-    
+
     // New Props for dynamic management
     plans: Plan[];
     onManagePlans: (action: 'add' | 'update' | 'delete', plan: Plan) => void;
-    
+
     paymentGateways: PaymentGatewayConfig[];
     onManageGateways: (gateways: PaymentGatewayConfig[]) => void;
-    
+
     platformAccounts: PlatformBankAccount[];
     onManageAccounts: (accounts: PlatformBankAccount[]) => void;
 
@@ -30,11 +30,11 @@ interface AdminDashboardProps {
     onSendMessage: (receiverId: string, content: string, productId?: string, productName?: string, attachment?: Attachment) => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-    users, 
-    onUpdateUserStatus, 
-    onLogout, 
-    transactions = [], 
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({
+    users,
+    onUpdateUserStatus,
+    onLogout,
+    transactions = [],
     onTransactionAction,
     plans,
     onManagePlans,
@@ -59,7 +59,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Editing States
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [isAddingPlan, setIsAddingPlan] = useState(false);
-    
+
     // Gateway Form State
     const [localGateways, setLocalGateways] = useState<PaymentGatewayConfig[]>(paymentGateways);
     // Accounts Form State
@@ -72,15 +72,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Stats Calculation
     const totalUsers = users.length;
     const businessUsers = users.filter(u => u.isBusiness).length;
-    
+
     // MRR Calculation (Only approved plan payments)
     const mrr = transactions.filter(t => t.status === 'Aprovado' && t.category === 'PLAN_PAYMENT').reduce((acc, curr) => acc + curr.amount, 0);
 
     // Total Platform Sales Volume (Approved Purchase transactions)
     const totalSalesVolume = transactions.filter(t => t.status === 'Aprovado' && t.category === 'PURCHASE').reduce((acc, curr) => acc + curr.amount, 0);
 
-    const filteredUsers = users.filter(u => 
-        u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredUsers = users.filter(u =>
+        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -88,9 +88,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const companies = users.filter(u => u.isBusiness);
 
     // Support Logic
-    const adminId = 'admin-master';
+    const adminId = '00000000-0000-0000-0000-000000000000';
     const supportMessages = messages.filter(m => m.receiverId === adminId || m.senderId === adminId);
-    
+
     // Group messages by user
     const supportConversations: Record<string, Message[]> = {};
     supportMessages.forEach(msg => {
@@ -101,36 +101,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         supportConversations[otherId].push(msg);
     });
 
-    const activeChatMessages = selectedChatUser ? (supportConversations[selectedChatUser] || []).sort((a,b) => a.timestamp - b.timestamp) : [];
+    const activeChatMessages = selectedChatUser ? (supportConversations[selectedChatUser] || []).sort((a, b) => a.timestamp - b.timestamp) : [];
 
     // Chart Data Preparation
     // 1. Plan Revenue (MRR) by Month
     const revenueByMonth = transactions
         .filter(t => t.status === 'Aprovado' && t.category === 'PLAN_PAYMENT')
         .reduce((acc, t) => {
-             const month = new Date(t.timestamp).toLocaleString('pt-BR', { month: 'short' });
-             acc[month] = (acc[month] || 0) + t.amount;
-             return acc;
+            const month = new Date(t.timestamp).toLocaleString('pt-BR', { month: 'short' });
+            acc[month] = (acc[month] || 0) + t.amount;
+            return acc;
         }, {} as Record<string, number>);
 
     const revenueChartData = Object.entries(revenueByMonth).map(([name, value]) => ({ name, value }));
     // If empty, mock some data for visualization if needed, or leave empty
-    if(revenueChartData.length === 0) {
-         revenueChartData.push({ name: 'Jan', value: 0 }, { name: 'Fev', value: 0 });
+    if (revenueChartData.length === 0) {
+        revenueChartData.push({ name: 'Jan', value: 0 }, { name: 'Fev', value: 0 });
     }
 
     // 2. Sales Volume by Month
     const salesByMonth = transactions
         .filter(t => t.status === 'Aprovado' && t.category === 'PURCHASE')
         .reduce((acc, t) => {
-             const month = new Date(t.timestamp).toLocaleString('pt-BR', { month: 'short' });
-             acc[month] = (acc[month] || 0) + t.amount;
-             return acc;
+            const month = new Date(t.timestamp).toLocaleString('pt-BR', { month: 'short' });
+            acc[month] = (acc[month] || 0) + t.amount;
+            return acc;
         }, {} as Record<string, number>);
-    
+
     const salesChartData = Object.entries(salesByMonth).map(([name, value]) => ({ name, value }));
-     if(salesChartData.length === 0) {
-         salesChartData.push({ name: 'Jan', value: 0 }, { name: 'Fev', value: 0 });
+    if (salesChartData.length === 0) {
+        salesChartData.push({ name: 'Jan', value: 0 }, { name: 'Fev', value: 0 });
     }
 
     // Helper for Subscription Expiration Date
@@ -155,7 +155,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
 
     const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
-        <button 
+        <button
             onClick={onClick}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-500 hover:bg-gray-100'}`}
         >
@@ -212,10 +212,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onManageAccounts(localAccounts);
         alert('Contas Bancárias atualizadas!');
     };
-    
+
     const handleSendReply = (e: React.FormEvent) => {
         e.preventDefault();
-        if(selectedChatUser && replyContent.trim()) {
+        if (selectedChatUser && replyContent.trim()) {
             onSendMessage(selectedChatUser, replyContent);
             setReplyContent('');
         }
@@ -294,7 +294,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     </div>
                                     <p className="text-gray-500 text-sm font-medium">Total de Vendas da Plataforma</p>
                                     <h3 className="text-3xl font-bold text-gray-900 mt-1">
-                                         {totalSalesVolume.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kz
+                                        {totalSalesVolume.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kz
                                     </h3>
                                 </div>
                                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -306,7 +306,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     <h3 className="text-3xl font-bold text-gray-900 mt-1">{businessUsers}</h3>
                                 </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                                     <h3 className="text-lg font-bold text-gray-900 mb-6">Receita de Planos (MRR)</h3>
@@ -315,28 +315,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             <AreaChart data={revenueChartData}>
                                                 <defs>
                                                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3}/>
-                                                        <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
+                                                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3} />
+                                                        <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} dy={10} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} tickFormatter={(value) => `${value/1000}k`} />
+                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} dy={10} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} tickFormatter={(value) => `${value / 1000}k`} />
                                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none' }} formatter={(value: number) => [`${value.toLocaleString('pt-BR')} Kz`, 'Receita']} />
                                                 <Area type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
-                                
+
                                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                                     <h3 className="text-lg font-bold text-gray-900 mb-6">Volume de Vendas da Plataforma</h3>
                                     <div className="h-64 w-full">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={salesChartData}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} dy={10} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9CA3AF', fontSize: 12}} tickFormatter={(value) => `${value/1000}k`} />
+                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} dy={10} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} tickFormatter={(value) => `${value / 1000}k`} />
                                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none' }} formatter={(value: number) => [`${value.toLocaleString('pt-BR')} Kz`, 'Vendas']} />
                                                 <Bar dataKey="value" fill="#10B981" radius={[4, 4, 0, 0]} />
                                             </BarChart>
@@ -395,7 +395,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             </div>
                                             {selectedUserDetail.isBusiness && (
                                                 <div className="md:col-span-2 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                                    <h5 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Banknote size={16}/> Dados Bancários</h5>
+                                                    <h5 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Banknote size={16} /> Dados Bancários</h5>
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div>
                                                             <p className="text-xs text-indigo-400 font-bold">Banco</p>
@@ -423,8 +423,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
                                 <div className="relative w-64">
                                     <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Buscar utilizador..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -466,7 +466,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-full ${u.accountStatus === 'Blocked' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${u.accountStatus === 'Blocked' ? 'bg-red-500' : 'bg-green-500'}`}></div> 
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${u.accountStatus === 'Blocked' ? 'bg-red-500' : 'bg-green-500'}`}></div>
                                                     {u.accountStatus === 'Blocked' ? 'Bloqueado' : 'Ativo'}
                                                 </span>
                                             </td>
@@ -476,7 +476,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                                     {u.accountStatus !== 'Blocked' ? (
                                                         <button onClick={() => onUpdateUserStatus(u.id, 'block')} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Bloquear"><Lock size={18} /></button>
                                                     ) : (
-                                                         <button onClick={() => onUpdateUserStatus(u.id, 'unblock')} className="p-2 text-green-500 hover:bg-green-50 rounded-lg" title="Desbloquear"><Unlock size={18} /></button>
+                                                        <button onClick={() => onUpdateUserStatus(u.id, 'unblock')} className="p-2 text-green-500 hover:bg-green-50 rounded-lg" title="Desbloquear"><Unlock size={18} /></button>
+                                                    )}
+                                                    {u.isBank && !u.isVerified && (
+                                                        <button onClick={() => onUpdateUserStatus(u.id, 'verify')} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg" title="Verificar Instituição"><CheckCircle size={18} /></button>
                                                     )}
                                                 </div>
                                             </td>
@@ -491,11 +494,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {view === 'PLANS' && (
                         <div className="space-y-6">
                             <div className="flex justify-end">
-                                <Button 
+                                <Button
                                     onClick={() => {
                                         setEditingPlan({ id: Date.now().toString(), type: 'NOVO PLANO', price: 0, features: [], color: 'bg-white', maxProducts: 10, maxHighlights: 0 });
                                         setIsAddingPlan(true);
-                                    }} 
+                                    }}
                                     className="bg-indigo-600 text-white"
                                 >
                                     <Plus size={20} className="mr-2" /> Adicionar Plano
@@ -508,27 +511,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     <form onSubmit={handleSavePlan} className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-xs font-bold text-gray-500">Nome do Plano</label>
-                                            <input type="text" value={editingPlan.type} onChange={e => setEditingPlan({...editingPlan, type: e.target.value})} className="w-full border p-2 rounded-lg" required />
+                                            <input type="text" value={editingPlan.type} onChange={e => setEditingPlan({ ...editingPlan, type: e.target.value })} className="w-full border p-2 rounded-lg" required />
                                         </div>
                                         <div>
                                             <label className="text-xs font-bold text-gray-500">Preço (Kz)</label>
-                                            <input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})} className="w-full border p-2 rounded-lg" required />
+                                            <input type="number" value={editingPlan.price} onChange={e => setEditingPlan({ ...editingPlan, price: parseFloat(e.target.value) })} className="w-full border p-2 rounded-lg" required />
                                         </div>
                                         <div>
                                             <label className="text-xs font-bold text-gray-500">Max Produtos (-1 para ilimitado)</label>
-                                            <input type="number" value={editingPlan.maxProducts} onChange={e => setEditingPlan({...editingPlan, maxProducts: parseInt(e.target.value)})} className="w-full border p-2 rounded-lg" required />
+                                            <input type="number" value={editingPlan.maxProducts} onChange={e => setEditingPlan({ ...editingPlan, maxProducts: parseInt(e.target.value) })} className="w-full border p-2 rounded-lg" required />
                                         </div>
                                         <div>
                                             <label className="text-xs font-bold text-gray-500">Max Destaques (-1 para ilimitado)</label>
-                                            <input type="number" value={editingPlan.maxHighlights} onChange={e => setEditingPlan({...editingPlan, maxHighlights: parseInt(e.target.value)})} className="w-full border p-2 rounded-lg" required />
+                                            <input type="number" value={editingPlan.maxHighlights} onChange={e => setEditingPlan({ ...editingPlan, maxHighlights: parseInt(e.target.value) })} className="w-full border p-2 rounded-lg" required />
                                         </div>
                                         <div className="col-span-2">
-                                             <label className="text-xs font-bold text-gray-500">Funcionalidades (separadas por vírgula)</label>
-                                             <input 
-                                                type="text" 
-                                                value={editingPlan.features.join(', ')} 
-                                                onChange={e => setEditingPlan({...editingPlan, features: e.target.value.split(',').map(s => s.trim())})} 
-                                                className="w-full border p-2 rounded-lg" 
+                                            <label className="text-xs font-bold text-gray-500">Funcionalidades (separadas por vírgula)</label>
+                                            <input
+                                                type="text"
+                                                value={editingPlan.features.join(', ')}
+                                                onChange={e => setEditingPlan({ ...editingPlan, features: e.target.value.split(',').map(s => s.trim()) })}
+                                                className="w-full border p-2 rounded-lg"
                                             />
                                         </div>
                                         <div className="col-span-2 flex justify-end gap-2 mt-2">
@@ -575,7 +578,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                             {financeSubTab === 'BALANCES' && (
                                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                                     <table className="w-full text-left">
+                                    <table className="w-full text-left">
                                         <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
                                             <tr>
                                                 <th className="px-6 py-4">Empresa</th>
@@ -598,7 +601,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </div>
                             )}
 
-                             {financeSubTab === 'SUBSCRIPTIONS' && (
+                            {financeSubTab === 'SUBSCRIPTIONS' && (
                                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                                     <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                                         <h3 className="font-bold text-gray-700">Pagamentos de Planos Recorrentes</h3>
@@ -669,53 +672,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                                     <button onClick={() => setSelectedWithdrawalDetail(null)} className="p-2 hover:bg-gray-200 rounded-full"><X size={20} /></button>
                                                 </div>
                                                 <div className="p-6 space-y-4">
-                                                     <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                                         <div>
-                                                             <p className="text-xs text-indigo-500 font-bold uppercase">Valor Solicitado</p>
-                                                             <p className="text-2xl font-black text-indigo-900">{selectedWithdrawalDetail.amount.toLocaleString('pt-BR')} Kz</p>
-                                                         </div>
-                                                         <div className="text-right">
-                                                             <StatusBadge status={selectedWithdrawalDetail.status} />
-                                                             <p className="text-xs text-gray-500 mt-1">{selectedWithdrawalDetail.requestDate}</p>
-                                                         </div>
-                                                     </div>
+                                                    <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                                        <div>
+                                                            <p className="text-xs text-indigo-500 font-bold uppercase">Valor Solicitado</p>
+                                                            <p className="text-2xl font-black text-indigo-900">{selectedWithdrawalDetail.amount.toLocaleString('pt-BR')} Kz</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <StatusBadge status={selectedWithdrawalDetail.status} />
+                                                            <p className="text-xs text-gray-500 mt-1">{selectedWithdrawalDetail.requestDate}</p>
+                                                        </div>
+                                                    </div>
 
-                                                     <div>
-                                                         <h4 className="font-bold text-gray-800 mb-2">Dados da Empresa</h4>
-                                                         {(() => {
-                                                             const companyUser = getUserById(selectedWithdrawalDetail.companyId);
-                                                             return companyUser ? (
-                                                                 <div className="text-sm space-y-1 text-gray-600">
-                                                                     <p><span className="font-bold">Nome:</span> {companyUser.name}</p>
-                                                                     <p><span className="font-bold">Email:</span> {companyUser.email}</p>
-                                                                     <p><span className="font-bold">Telefone:</span> {companyUser.phone}</p>
-                                                                     <p><span className="font-bold">NIF:</span> {companyUser.nif || 'N/A'}</p>
-                                                                 </div>
-                                                             ) : <p className="text-red-500 text-sm">Empresa não encontrada.</p>;
-                                                         })()}
-                                                     </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800 mb-2">Dados da Empresa</h4>
+                                                        {(() => {
+                                                            const companyUser = getUserById(selectedWithdrawalDetail.companyId);
+                                                            return companyUser ? (
+                                                                <div className="text-sm space-y-1 text-gray-600">
+                                                                    <p><span className="font-bold">Nome:</span> {companyUser.name}</p>
+                                                                    <p><span className="font-bold">Email:</span> {companyUser.email}</p>
+                                                                    <p><span className="font-bold">Telefone:</span> {companyUser.phone}</p>
+                                                                    <p><span className="font-bold">NIF:</span> {companyUser.nif || 'N/A'}</p>
+                                                                </div>
+                                                            ) : <p className="text-red-500 text-sm">Empresa não encontrada.</p>;
+                                                        })()}
+                                                    </div>
 
-                                                     <div className="border-t border-gray-100 pt-4">
-                                                         <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Building2 size={16}/> Dados Bancários Verificados</h4>
-                                                         {(() => {
-                                                             const companyUser = getUserById(selectedWithdrawalDetail.companyId);
-                                                             const bankInfo = companyUser?.bankDetails;
-                                                             return bankInfo ? (
-                                                                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm space-y-2">
-                                                                     <p><span className="font-bold text-gray-500">Banco:</span> {bankInfo.bankName}</p>
-                                                                     <p><span className="font-bold text-gray-500">Titular:</span> {bankInfo.beneficiaryName}</p>
-                                                                     <div className="bg-white p-2 rounded border border-gray-200 mt-1">
-                                                                         <p className="text-xs text-gray-400 font-bold">IBAN</p>
-                                                                         <p className="font-mono font-bold text-gray-900">{bankInfo.iban}</p>
-                                                                     </div>
-                                                                     <div className="bg-white p-2 rounded border border-gray-200">
-                                                                         <p className="text-xs text-gray-400 font-bold">Nº Conta</p>
-                                                                         <p className="font-mono font-bold text-gray-900">{bankInfo.accountNumber}</p>
-                                                                     </div>
-                                                                 </div>
-                                                             ) : <p className="text-red-500 bg-red-50 p-2 rounded text-sm">Dados bancários não encontrados no perfil da empresa.</p>;
-                                                         })()}
-                                                     </div>
+                                                    <div className="border-t border-gray-100 pt-4">
+                                                        <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Building2 size={16} /> Dados Bancários Verificados</h4>
+                                                        {(() => {
+                                                            const companyUser = getUserById(selectedWithdrawalDetail.companyId);
+                                                            const bankInfo = companyUser?.bankDetails;
+                                                            return bankInfo ? (
+                                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm space-y-2">
+                                                                    <p><span className="font-bold text-gray-500">Banco:</span> {bankInfo.bankName}</p>
+                                                                    <p><span className="font-bold text-gray-500">Titular:</span> {bankInfo.beneficiaryName}</p>
+                                                                    <div className="bg-white p-2 rounded border border-gray-200 mt-1">
+                                                                        <p className="text-xs text-gray-400 font-bold">IBAN</p>
+                                                                        <p className="font-mono font-bold text-gray-900">{bankInfo.iban}</p>
+                                                                    </div>
+                                                                    <div className="bg-white p-2 rounded border border-gray-200">
+                                                                        <p className="text-xs text-gray-400 font-bold">Nº Conta</p>
+                                                                        <p className="font-mono font-bold text-gray-900">{bankInfo.accountNumber}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ) : <p className="text-red-500 bg-red-50 p-2 rounded text-sm">Dados bancários não encontrados no perfil da empresa.</p>;
+                                                        })()}
+                                                    </div>
                                                 </div>
                                                 <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
                                                     {selectedWithdrawalDetail.status === 'Pendente' && (
@@ -740,7 +743,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <StatusBadge status={req.status} />
-                                                <button 
+                                                <button
                                                     onClick={() => setSelectedWithdrawalDetail(req)}
                                                     className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center gap-1 text-xs font-bold"
                                                 >
@@ -751,9 +754,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     ))}
                                 </div>
                             )}
-                            
+
                             {financeSubTab === 'TRANSACTIONS' && (
-                                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                                     <table className="w-full text-left">
                                         <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
                                             <tr>
@@ -768,7 +771,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <tbody>
                                             {transactions.map(t => (
                                                 <tr key={t.id} className="border-t border-gray-100">
-                                                    <td className="px-6 py-4 text-sm font-medium">{users.find(u=>u.id === t.user)?.name}</td>
+                                                    <td className="px-6 py-4 text-sm font-medium">{users.find(u => u.id === t.user)?.name}</td>
                                                     <td className="px-6 py-4 text-xs">{t.category}</td>
                                                     <td className="px-6 py-4 text-sm font-bold">{t.amount.toLocaleString('pt-BR')} Kz</td>
                                                     <td className="px-6 py-4 text-xs">{t.method}</td>
@@ -792,7 +795,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     {/* SETTINGS (Payment Gateways & Accounts) */}
                     {view === 'SETTINGS' && (
-                         <div className="space-y-6">
+                        <div className="space-y-6">
                             <div className="flex gap-4 border-b border-gray-200 pb-2">
                                 <button onClick={() => setSettingsSubTab('GATEWAYS')} className={`px-4 py-2 font-bold text-sm ${settingsSubTab === 'GATEWAYS' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}>Gateways de Pagamento (API)</button>
                                 <button onClick={() => setSettingsSubTab('ACCOUNTS')} className={`px-4 py-2 font-bold text-sm ${settingsSubTab === 'ACCOUNTS' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}>Contas Bancárias da Plataforma</button>
@@ -810,17 +813,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                                 <div className="space-y-3">
                                                     <div>
                                                         <label className="text-xs font-bold text-gray-500">API Key</label>
-                                                        <input 
-                                                            type="password" 
-                                                            value={gw.apiKey || ''} 
-                                                            onChange={(e) => handleUpdateGateway(idx, 'apiKey', e.target.value)} 
+                                                        <input
+                                                            type="password"
+                                                            value={gw.apiKey || ''}
+                                                            onChange={(e) => handleUpdateGateway(idx, 'apiKey', e.target.value)}
                                                             className="w-full border p-2 rounded-lg text-sm bg-gray-50"
                                                         />
                                                     </div>
                                                     <div>
                                                         <label className="text-xs font-bold text-gray-500">Ambiente</label>
-                                                        <select 
-                                                            value={gw.environment} 
+                                                        <select
+                                                            value={gw.environment}
                                                             onChange={(e) => handleUpdateGateway(idx, 'environment', e.target.value)}
                                                             className="w-full border p-2 rounded-lg text-sm bg-gray-50"
                                                         >
@@ -829,10 +832,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                                         </select>
                                                     </div>
                                                     <div className="flex items-center gap-2 pt-2">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={gw.isActive} 
-                                                            onChange={(e) => handleUpdateGateway(idx, 'isActive', e.target.checked)} 
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={gw.isActive}
+                                                            onChange={(e) => handleUpdateGateway(idx, 'isActive', e.target.checked)}
                                                         />
                                                         <label className="text-sm">Ativar na Plataforma</label>
                                                     </div>
@@ -840,7 +843,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             </div>
                                         ))}
                                     </div>
-                                    <Button onClick={saveGateways} className="bg-indigo-600 text-white"><Save size={18} className="mr-2"/> Salvar Configurações</Button>
+                                    <Button onClick={saveGateways} className="bg-indigo-600 text-white"><Save size={18} className="mr-2" /> Salvar Configurações</Button>
                                 </div>
                             )}
 
@@ -861,16 +864,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                                 <label className="text-xs font-bold text-gray-500">Nº Conta</label>
                                                 <input type="text" value={acc.accountNumber} onChange={(e) => handleUpdateAccount(idx, 'accountNumber', e.target.value)} className="w-full border p-2 rounded-lg text-sm" />
                                             </div>
-                                            <button onClick={() => handleRemoveAccount(idx)} className="p-2.5 bg-red-100 text-red-500 rounded-lg hover:bg-red-200"><Trash2 size={18}/></button>
+                                            <button onClick={() => handleRemoveAccount(idx)} className="p-2.5 bg-red-100 text-red-500 rounded-lg hover:bg-red-200"><Trash2 size={18} /></button>
                                         </div>
                                     ))}
                                     <div className="flex gap-4 mt-4">
-                                        <Button onClick={handleAddAccount} className="bg-gray-800 text-white"><Plus size={18} className="mr-2"/> Adicionar Conta</Button>
-                                        <Button onClick={saveAccounts} className="bg-green-600 text-white"><Save size={18} className="mr-2"/> Salvar Contas</Button>
+                                        <Button onClick={handleAddAccount} className="bg-gray-800 text-white"><Plus size={18} className="mr-2" /> Adicionar Conta</Button>
+                                        <Button onClick={saveAccounts} className="bg-green-600 text-white"><Save size={18} className="mr-2" /> Salvar Contas</Button>
                                     </div>
                                 </div>
                             )}
-                         </div>
+                        </div>
                     )}
 
                     {/* SUPPORT VIEW */}
@@ -885,13 +888,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     <div className="p-8 text-center text-gray-400 text-sm">Nenhuma mensagem.</div>
                                 ) : (
                                     Object.keys(supportConversations).map(userId => {
-                                        const msgs = supportConversations[userId].sort((a,b) => b.timestamp - a.timestamp); // newest first for preview
+                                        const msgs = supportConversations[userId].sort((a, b) => b.timestamp - a.timestamp); // newest first for preview
                                         const lastMsg = msgs[0];
                                         const userObj = getUserById(userId);
                                         const isActive = selectedChatUser === userId;
-                                        
+
                                         return (
-                                            <button 
+                                            <button
                                                 key={userId}
                                                 onClick={() => setSelectedChatUser(userId)}
                                                 className={`w-full p-4 text-left border-b border-gray-100 hover:bg-gray-50 transition-colors ${isActive ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
@@ -909,7 +912,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     })
                                 )}
                             </div>
-                            
+
                             {/* Chat Area */}
                             <div className="flex-1 flex flex-col bg-gray-50">
                                 {selectedChatUser ? (
@@ -928,16 +931,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                                         <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${isAdmin ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'}`}>
                                                             {msg.attachment && (
                                                                 <div className="mb-2 p-1 bg-black/10 rounded">
-                                                                     {msg.attachment.type === 'image' ? (
+                                                                    {msg.attachment.type === 'image' ? (
                                                                         <img src={msg.attachment.url} alt="anexo" className="max-w-full rounded" />
                                                                     ) : (
-                                                                        <div className="flex items-center gap-2 text-xs"><Paperclip size={12}/> {msg.attachment.name}</div>
+                                                                        <div className="flex items-center gap-2 text-xs"><Paperclip size={12} /> {msg.attachment.name}</div>
                                                                     )}
                                                                 </div>
                                                             )}
                                                             <p>{msg.content}</p>
                                                             <p className={`text-[9px] mt-1 text-right ${isAdmin ? 'text-indigo-200' : 'text-gray-400'}`}>
-                                                                {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -946,14 +949,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         </div>
                                         <div className="p-4 bg-white border-t border-gray-200">
                                             <form onSubmit={handleSendReply} className="flex gap-2">
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     value={replyContent}
                                                     onChange={e => setReplyContent(e.target.value)}
                                                     placeholder="Escreva uma resposta..."
                                                     className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500"
                                                 />
-                                                <Button type="submit" className="bg-indigo-600 text-white"><Send size={18}/></Button>
+                                                <Button type="submit" className="bg-indigo-600 text-white"><Send size={18} /></Button>
                                             </form>
                                         </div>
                                     </>

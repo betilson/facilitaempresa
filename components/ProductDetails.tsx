@@ -14,7 +14,7 @@ interface ProductDetailsProps {
     isFavorite: boolean;
     onToggleFavorite: () => void;
     onSendMessage?: (content: string, attachment?: Attachment) => void;
-    companyPhone?: string; // New prop for dynamic phone number
+    companyPhone?: string;
 }
 
 export const ProductDetails: React.FC<ProductDetailsProps> = ({
@@ -50,7 +50,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
         const shareData = {
             title: product.title,
             text: `Confira ${product.title} na Facilita!`,
-            url: window.location.href // In a real app, this would be a specific product link
+            url: window.location.href
         };
 
         if (navigator.share) {
@@ -60,7 +60,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 console.log('Error sharing:', err);
             }
         } else {
-            // Fallback for browsers that don't support Web Share API
             navigator.clipboard.writeText(`${product.title} - ${product.price} Kz\n${window.location.href}`);
             setShowShareToast(true);
             setTimeout(() => setShowShareToast(false), 2000);
@@ -90,7 +89,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     url = optimized;
                     type = 'image';
                 } else {
-                    // For docs, simple reader
                     const reader = new FileReader();
                     url = await new Promise((resolve) => {
                         reader.onload = (e) => resolve(e.target?.result as string);
@@ -117,7 +115,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
         if (onSendMessage) {
             onSendMessage(msgContent, attachment);
-            // Feedback personalizado para serviços conforme solicitado
             const successMessage = isService
                 ? 'Solicitação enviada! Aguarde a resposta da empresa.'
                 : 'Mensagem enviada com sucesso!';
@@ -130,16 +127,10 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     };
 
     const handleWhatsAppClick = () => {
-        // Use company phone if available
         let cleanPhone = companyPhone ? companyPhone.replace(/[^0-9]/g, '') : '';
-
-        // Auto-fix for Angola numbers: Ensure it starts with 244
-        // If length is 9 (e.g. 923123456), add 244 prefix
         if (cleanPhone.length === 9 && (cleanPhone.startsWith('9') || cleanPhone.startsWith('2'))) {
             cleanPhone = '244' + cleanPhone;
         }
-
-        // If starts with 00244, remove 00
         if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
 
         if (cleanPhone) {
@@ -151,7 +142,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
     return (
         <div className="h-full bg-white dark:bg-gray-900 overflow-y-auto pb-20 relative animate-[fadeIn_0.3s_ease-out] transition-colors duration-300">
-            {/* Toast Notification */}
             <Toast
                 isVisible={toast.show}
                 message={toast.message}
@@ -159,14 +149,12 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 onClose={() => setToast(prev => ({ ...prev, show: false }))}
             />
 
-            {/* Share Toast */}
             {showShareToast && (
                 <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm z-50 animate-[fadeIn_0.2s_ease-out]">
                     Link copiado!
                 </div>
             )}
 
-            {/* Message Modal for Services/Contact */}
             {showMsgModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-[scaleIn_0.2s_ease-out]">
@@ -197,7 +185,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                                 autoFocus
                             />
 
-                            {/* Attachment Preview */}
                             {attachment && (
                                 <div className="mb-3 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex justify-between items-center">
                                     <div className="flex items-center gap-2 overflow-hidden">
@@ -252,18 +239,18 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60"></div>
 
                 {/* Top Navigation */}
-                <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-white z-10">
+                <div className="absolute top-6 left-6 right-6 md:top-8 md:right-48 md:left-10 flex justify-between items-center text-white z-50 pointer-events-none">
                     <button
                         onClick={onBack}
-                        className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                        className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors pointer-events-auto shadow-sm"
                     >
                         <ArrowLeft size={20} />
                     </button>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 pointer-events-auto">
                         {!isService && (
                             <button
                                 onClick={onOpenCart}
-                                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors relative"
+                                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors relative shadow-sm"
                             >
                                 <ShoppingCart size={20} />
                                 {cartItemCount > 0 && (
@@ -275,13 +262,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                         )}
                         <button
                             onClick={handleShare}
-                            className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                            className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors shadow-sm"
                         >
                             <Share2 size={20} />
                         </button>
                         <button
                             onClick={onToggleFavorite}
-                            className={`w-10 h-10 backdrop-blur-md rounded-full flex items-center justify-center transition-all duration-300 ${isFavorite ? 'bg-white text-red-600 shadow-md transform scale-110' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                            className={`w-10 h-10 backdrop-blur-md rounded-full flex items-center justify-center transition-all duration-300 shadow-sm ${isFavorite ? 'bg-white text-red-600 shadow-md transform scale-110' : 'bg-white/20 text-white hover:bg-white/30'}`}
                         >
                             <Heart size={20} className={`transition-all ${isFavorite ? 'fill-red-600' : ''}`} />
                         </button>

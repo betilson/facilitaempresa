@@ -53,27 +53,38 @@ export const userService = {
 
   // Update user
   async updateUser(userId: string, updates: Partial<User>) {
+    // Build update object with only defined fields to avoid setting undefined values
+    const updateData: any = {};
+
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+    if (updates.nif !== undefined) updateData.nif = updates.nif;
+    if (updates.isBusiness !== undefined) updateData.is_business = updates.isBusiness;
+    if (updates.isBank !== undefined) updateData.is_bank = updates.isBank;
+    if (updates.profileImage !== undefined) updateData.profile_image = updates.profileImage;
+    if (updates.coverImage !== undefined) updateData.cover_image = updates.coverImage;
+    if (updates.address !== undefined) updateData.address = updates.address;
+    if (updates.province !== undefined) updateData.province = updates.province;
+    if (updates.municipality !== undefined) updateData.municipality = updates.municipality;
+    if (updates.walletBalance !== undefined) updateData.wallet_balance = updates.walletBalance;
+    if (updates.topUpBalance !== undefined) updateData.topup_balance = updates.topUpBalance;
+    if (updates.plan !== undefined) updateData.plan = updates.plan;
+    if (updates.accountStatus !== undefined) updateData.account_status = updates.accountStatus;
+    if (updates.isVerified !== undefined) updateData.is_verified = updates.isVerified;
+    if (updates.favorites !== undefined) updateData.favorites = updates.favorites;
+    if (updates.following !== undefined) updateData.following = updates.following;
+    if (updates.settings?.notifications !== undefined) updateData.notifications_enabled = updates.settings.notifications;
+    if (updates.settings?.allowMessages !== undefined) updateData.allow_messages = updates.settings.allowMessages;
+
     const { data, error } = await supabase
       .from('users')
-      .update({
-        name: updates.name,
-        phone: updates.phone,
-        profile_image: updates.profileImage,
-        cover_image: updates.coverImage,
-        address: updates.address,
-        province: updates.province,
-        municipality: updates.municipality,
-        wallet_balance: updates.walletBalance,
-        topup_balance: updates.topUpBalance,
-        plan: updates.plan,
-        account_status: updates.accountStatus
-      })
+      .update(updateData)
       .eq('id', userId)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    return data;
+    return data && data.length > 0 ? data[0] : null;
   },
 
   // Get all users (admin only)
