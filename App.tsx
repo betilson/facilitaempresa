@@ -116,7 +116,20 @@ const App: React.FC = () => {
         if (!userExists) {
             addUser(loggedInUser); // Use Supabase hook
         } else {
-            currentUser = { ...userExists, ...loggedInUser };
+            // Merge logic: Prioritize loggedInUser (latest), but preserve existing images if loggedInUser has none
+            currentUser = {
+                ...userExists,
+                ...loggedInUser,
+                profileImage: loggedInUser.profileImage || userExists.profileImage,
+                coverImage: loggedInUser.coverImage || userExists.coverImage,
+                // Also preserve other potentially missing fields in fallback login
+                isBusiness: loggedInUser.isBusiness ?? userExists.isBusiness,
+                isBank: loggedInUser.isBank ?? userExists.isBank,
+                nif: loggedInUser.nif || userExists.nif,
+                address: loggedInUser.address || userExists.address,
+                province: loggedInUser.province || userExists.province,
+                municipality: loggedInUser.municipality || userExists.municipality
+            };
         }
 
         const userWithFavs = { ...currentUser, favorites: currentUser.favorites || [], following: currentUser.following || [], walletBalance: currentUser.walletBalance || 0, topUpBalance: currentUser.topUpBalance || 0, settings: currentUser.settings || { notifications: true, allowMessages: true }, accountStatus: currentUser.accountStatus || 'Active' };

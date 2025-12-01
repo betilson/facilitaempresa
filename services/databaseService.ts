@@ -21,29 +21,33 @@ export const userService = {
 
   // Create or Update user (Upsert)
   async createUser(user: Partial<User>) {
+    // Build user object with only defined fields to avoid overwriting with null/undefined
+    const userData: any = {
+      id: user.id,
+      email: user.email,
+    };
+
+    if (user.name !== undefined) userData.name = user.name;
+    if (user.phone !== undefined) userData.phone = user.phone;
+    if (user.isBusiness !== undefined) userData.is_business = user.isBusiness;
+    if (user.isAdmin !== undefined) userData.is_admin = user.isAdmin;
+    if (user.isBank !== undefined) userData.is_bank = user.isBank;
+    if (user.nif !== undefined) userData.nif = user.nif;
+    if (user.plan !== undefined) userData.plan = user.plan;
+    if (user.profileImage !== undefined) userData.profile_image = user.profileImage;
+    if (user.coverImage !== undefined) userData.cover_image = user.coverImage;
+    if (user.address !== undefined) userData.address = user.address;
+    if (user.province !== undefined) userData.province = user.province;
+    if (user.municipality !== undefined) userData.municipality = user.municipality;
+    if (user.walletBalance !== undefined) userData.wallet_balance = user.walletBalance;
+    if (user.topUpBalance !== undefined) userData.topup_balance = user.topUpBalance;
+    if (user.accountStatus !== undefined) userData.account_status = user.accountStatus;
+    if (user.settings?.notifications !== undefined) userData.notifications_enabled = user.settings.notifications;
+    if (user.settings?.allowMessages !== undefined) userData.allow_messages = user.settings.allowMessages;
+
     const { data, error } = await supabase
       .from('users')
-      .upsert([{
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        is_business: user.isBusiness || false,
-        is_admin: user.isAdmin || false,
-        is_bank: user.isBank || false,
-        nif: user.nif,
-        plan: user.plan || 'Gratuito',
-        profile_image: user.profileImage,
-        cover_image: user.coverImage,
-        address: user.address,
-        province: user.province,
-        municipality: user.municipality,
-        wallet_balance: user.walletBalance || 0,
-        topup_balance: user.topUpBalance || 0,
-        account_status: user.accountStatus || 'Active',
-        notifications_enabled: user.settings?.notifications ?? true,
-        allow_messages: user.settings?.allowMessages ?? true
-      }])
+      .upsert([userData])
       .select()
       .single();
 
@@ -129,9 +133,28 @@ export const bankService = {
 
   // Create or Update bank/company (Upsert)
   async createBank(bank: Partial<Bank>) {
+    // Build bank object with only defined fields
+    const bankData: any = { id: bank.id };
+
+    if (bank.name !== undefined) bankData.name = bank.name;
+    if (bank.logo !== undefined) bankData.logo = bank.logo;
+    if (bank.coverImage !== undefined) bankData.cover_image = bank.coverImage;
+    if (bank.description !== undefined) bankData.description = bank.description;
+    if (bank.followers !== undefined) bankData.followers = bank.followers;
+    if (bank.reviews !== undefined) bankData.reviews = bank.reviews;
+    if (bank.phone !== undefined) bankData.phone = bank.phone;
+    if (bank.email !== undefined) bankData.email = bank.email;
+    if (bank.nif !== undefined) bankData.nif = bank.nif;
+    if (bank.address !== undefined) bankData.address = bank.address;
+    if (bank.province !== undefined) bankData.province = bank.province;
+    if (bank.municipality !== undefined) bankData.municipality = bank.municipality;
+    if (bank.parentId !== undefined) bankData.parent_id = bank.parentId;
+    if (bank.type !== undefined) bankData.type = bank.type;
+    if (bank.isBank !== undefined) bankData.is_bank = bank.isBank;
+
     const { data, error } = await supabase
       .from('banks')
-      .upsert([bank]) // Using upsert prevents unique constraint errors
+      .upsert([bankData]) // Using upsert prevents unique constraint errors
       .select()
       .single();
 
