@@ -1,0 +1,81 @@
+<!-- 
+PWA ICON GENERATION GUIDE
+=========================
+
+PROBLEMA IDENTIFICADO:
+O PWA não está instalando porque os ícones referenciados no manifest.json não existem na pasta /public.
+
+SOLUÇÃO:
+Você precisa gerar os ícones em vários tamanhos. Use o ícone base que já foi criado:
+C:\Users\urbho\.gemini\antigravity\brain\9469ac97-0c53-479a-af25-dd62ea8528ad\facilita_app_icon_1764531931758.png
+
+TAMANHOS NECESSÁRIOS:
+- icon-16x16.png
+- icon-32x32.png
+- icon-57x57.png
+- icon-60x60.png
+- icon-72x72.png
+- icon-76x76.png
+- icon-96x96.png
+- icon-114x114.png
+- icon-120x120.png
+- icon-128x128.png
+- icon-144x144.png
+- icon-152x152.png
+- icon-180x180.png
+- icon-192x192.png
+- icon-384x384.png
+- icon-512x512.png
+
+OPÇÃO 1 - USAR FERRAMENTA ONLINE (RECOMENDADO):
+1. Acesse: https://www.pwabuilder.com/imageGenerator
+2. Faça upload do ícone base (facilita_app_icon_1764531931758.png)
+3. Baixe o pacote ZIP com todos os tamanhos
+4. Extraia os ícones para: c:\Users\urbho\OneDrive\Área de Trabalho\facilitapro\facilita\public\
+
+OPÇÃO 2 - USAR PHOTOSHOP/GIMP:
+1. Abra o ícone base
+2. Redimensione para cada tamanho listado acima
+3. Salve cada um com o nome correto
+4. Coloque todos na pasta: c:\Users\urbho\OneDrive\Área de Trabalho\facilitapro\facilita\public\
+
+OPÇÃO 3 - USAR IMAGEMAGICK (LINHA DE COMANDO):
+Se tiver ImageMagick instalado, execute:
+
+cd "C:\Users\urbho\.gemini\antigravity\brain\9469ac97-0c53-479a-af25-dd62ea8528ad"
+set SOURCE=facilita_app_icon_1764531931758.png
+set DEST="C:\Users\urbho\OneDrive\Área de Trabalho\facilitapro\facilita\public"
+
+magick %SOURCE% -resize 16x16 %DEST%\icon-16x16.png
+magick %SOURCE% -resize 32x32 %DEST%\icon-32x32.png
+magick %SOURCE% -resize 57x57 %DEST%\icon-57x57.png
+magick %SOURCE% -resize 60x60 %DEST%\icon-60x60.png
+magick %SOURCE% -resize 72x72 %DEST%\icon-72x72.png
+magick %SOURCE% -resize 76x76 %DEST%\icon-76x76.png
+magick %SOURCE% -resize 96x96 %DEST%\icon-96x96.png
+magick %SOURCE% -resize 114x114 %DEST%\icon-114x114.png
+magick %SOURCE% -resize 120x120 %DEST%\icon-120x120.png
+magick %SOURCE% -resize 128x128 %DEST%\icon-128x128.png
+magick %SOURCE% -resize 144x144 %DEST%\icon-144x144.png
+magick %SOURCE% -resize 152x152 %DEST%\icon-152x152.png
+magick %SOURCE% -resize 180x180 %DEST%\icon-180x180.png
+magick %SOURCE% -resize 192x192 %DEST%\icon-192x192.png
+magick %SOURCE% -resize 384x384 %DEST%\icon-384x384.png
+magick %SOURCE% -resize 512x512 %DEST%\icon-512x512.png
+
+APÓS GERAR OS ÍCONES:
+1. Verifique que todos os ícones estão na pasta /public
+2. Faça commit e push:
+   git add public/icon-*.png
+   git commit -m "Add PWA icons for all required sizes"
+   git push origin main
+3. Aguarde o deploy da Vercel
+4. Teste a instalação do PWA em diferentes dispositivos
+
+VERIFICAÇÃO:
+Após o deploy, abra o site e:
+- Chrome Desktop: Procure o ícone de instalação (+) na barra de endereço
+- Chrome Mobile: Menu > Adicionar à tela inicial
+- Safari iOS: Compartilhar > Adicionar à Tela de Início
+- Edge: Ícone de instalação na barra de endereço
+-->
